@@ -29,13 +29,7 @@
                     Vital="no" KeyPath="no" DiskId="1" />
               <File Id="NLog.xml" Name="NLog.xml"
                     Source="..\WindowsService\bin\Debug\NLog.xml"
-                    Vital="no" KeyPath="no" DiskId="1" />
-              <File Id="NLog.Extended.dll" Name="NLog.Extended.dll"
-                    Source="..\WindowsService\bin\Debug\NLog.Extended.dll"
-                    Vital="no" KeyPath="no" DiskId="1" />
-              <File Id="NLog.Extended.xml" Name="NLog.Extended.xml"
-                    Source="..\WindowsService\bin\Debug\NLog.Extended.xml"
-                    Vital="no" KeyPath="no" DiskId="1" />
+                    Vital="no" KeyPath="no" DiskId="1" />            
               <ServiceInstall Id="ServiceInstaller"
                               Type="ownProcess" Vital="no" Name="$(var.ServiceName)"
                               DisplayName="$(var.ProductName)"
