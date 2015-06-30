@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Include>    
+  <?define ServiceName="ABBYYIntegrationService"?>
+  <?define ProductName="ABBYY Integration Service"?>
+  <?define CompanyName="Entum CM"?>
+  <?define Description="Recognition service for OTCS using ABBYY RS4"?>  
+</Include>
