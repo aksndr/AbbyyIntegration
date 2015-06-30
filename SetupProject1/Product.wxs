@@ -1,23 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <?include Parameters.wxi ?>
-  <Product Name="$(var.ProductName)"
-           Id="*"
+  <Product Id="*" Name="$(var.ProductName)"
            UpgradeCode="2d432002-ebf9-4407-b645-6a8d373101a5"
            Manufacturer="$(var.CompanyName)"
            Version="!(bind.FileVersion.IntegrationService.exe)"
            Language="1033">
-    <Package InstallerVersion="200"
-             Compressed="yes" />
-    <Media Id="1"
-           Cabinet="media1.cab"
-           EmbedCab="yes" />
+    <Package InstallerVersion="200" Compressed="yes" />
+    <Media Id="1" Cabinet="data.cab" EmbedCab="yes" />
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="COMPANYFOLDER" Name="$(var.CompanyName)">
           <Directory Id="INSTALLFOLDER" Name="$(var.ProductName)">
-            <Component Id="EntumCM.ABBYY_Integration_Service"
-                       Guid="2d432002-ebf9-4407-b645-6a8d373101a5">
+            <Component Id="EntumCM.ABBYY_Integration_Service" Guid="2d432002-ebf9-4407-b645-6a8d373101a5">
               <File Id="IntegrationService.exe" Name="IntegrationService.exe"
                     Source="..\WindowsService\bin\Debug\WindowsService.exe"
                     Vital="yes" KeyPath="yes" DiskId="1" />
