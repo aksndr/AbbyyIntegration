@@ -4,42 +4,54 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using NLog;
-using NLog.Targets;
 using NLog.Config;
+using NLog.Targets;
+
 
 namespace WindowsService
 {
-    public class Logger
+    public class Logger        
     {
-        private NLog.Logger log;
+        private static NLog.Logger log;
+        //private static readonly log4net.ILog log = log4net.LogManager.GetLogger
+    //(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         public Logger()
-        {           
+        {
             configureNLogger();
             log = LogManager.GetCurrentClassLogger();
+            log.Error("FUCK!");
+                    
         }
 
         private void configureNLogger()
         {
-            var config = new LoggingConfiguration();                       
-            var fileTarget = new FileTarget();
-            config.AddTarget("file", fileTarget);
+            try
+            {
+                var config = new NLog.Config.LoggingConfiguration();                
+                var fileTarget = new FileTarget();
+                config.AddTarget("file", fileTarget);
 
-            fileTarget.FileName = "${basedir}/log/${shortdate}.log";
-            fileTarget.Layout = "${longdate} ${level} ${message}";
-            fileTarget.KeepFileOpen = false;
-            fileTarget.Encoding = UTF8Encoding.UTF8;
-            fileTarget.CreateDirs = true;
-            
-            fileTarget.ArchiveFileName="${basedir}/archive/{##}.log";
-            fileTarget.ArchiveEvery=FileArchivePeriod.Month;
-            fileTarget.ArchiveNumbering=ArchiveNumberingMode.Rolling;
-            fileTarget.MaxArchiveFiles=12;
-            fileTarget.ConcurrentWrites=true;
+                fileTarget.FileName = "${basedir}/log/${shortdate}.log";
+                fileTarget.Layout = "${longdate} ${level} ${message}";
+                fileTarget.KeepFileOpen = false;
+                fileTarget.Encoding = UTF8Encoding.UTF8;
+                fileTarget.CreateDirs = true;
 
-            var rule = new LoggingRule("*", LogLevel.Info, fileTarget);
-            config.LoggingRules.Add(rule);
-                        
-            LogManager.Configuration = config;
+                fileTarget.ArchiveFileName = "${basedir}/archive/{##}.log";
+                fileTarget.ArchiveEvery = FileArchivePeriod.Month;
+                fileTarget.ArchiveNumbering = ArchiveNumberingMode.Rolling;
+                fileTarget.MaxArchiveFiles = 12;
+                fileTarget.ConcurrentWrites = true;
+
+                var rule = new LoggingRule("*", LogLevel.Info, fileTarget);
+                config.LoggingRules.Add(rule);
+
+                LogManager.Configuration = config;
+            }
+            catch(Exception e)
+            {
+                log.Error("FUCK!" +e.Message);//logError(e.Message);
+            }
         }        
 
         public void logInfo(string text)

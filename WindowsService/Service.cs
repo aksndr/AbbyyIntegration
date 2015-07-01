@@ -7,40 +7,43 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Timers;
+using WindowsService.Models;
 
 namespace WindowsService
 {
     public partial class Service : ServiceBase
     {
-        private Timer t1 = null;
-        private int step = 0;
-        private Logger logger;
+        private Timer timer = null;        
+        
+        public static Settings settings;
         public Service()
         {
-            InitializeComponent();
-            logger = new Logger();
+            InitializeComponent();            
         }
 
         protected override void OnStart(string[] args)
         {
-            this.t1 = new Timer();
-            this.t1.Interval = 30000;
-            this.t1.Elapsed += new System.Timers.ElapsedEventHandler(this.OnTimer);
-            this.t1.Start();
-            logger.logInfo("Test service started");
+            this.timer = new Timer();
+            this.timer.Interval = 30000;
+            this.timer.Elapsed += new System.Timers.ElapsedEventHandler(this.OnTimer);
+            this.timer.Start();
+            //logger.logInfo("ABBYY Integration service started.");
         }
 
         public void OnTimer(object sender, System.Timers.ElapsedEventArgs args)
         {
-            step++;
-            logger.logWarn("Test service step: " + step);
+            //step++;
+            //logger.logInfo("Test service step: " + step);
+            //RecognitionProcessManager rpm = new RecognitionProcessManager();
+            //if (rpm.isReady())
+            //    rpm.run();
+
         }
 
         protected override void OnStop()
         {
-            t1.Enabled = false;
-            logger.logWarn("Test service stopped");
-            logger.logError("Test error logging");
+            this.timer.Enabled = false;
+            //logger.logInfo("ABBYY Integration service stopped.");            
         }
     }
 }

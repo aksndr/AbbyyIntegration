@@ -1,2 +1,2 @@
-Windows service integrating ABBYY Recognition Service with Open Text Content Service, using CWS.
+Integration of ABBYY Recognition Service 4 with Open Text Content Server, using CWS.
 OTCS part is not presented in repository.
