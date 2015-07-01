@@ -98,7 +98,6 @@
     <Compile Include="Common\qm\IRecognitionWorker.cs" />
     <Compile Include="Common\qm\QueueManager.cs" />
     <Compile Include="Common\Utils.cs" />
-    <Compile Include="Logger.cs" />
     <Compile Include="Models\ExportSettings.cs" />
     <Compile Include="Models\OTCSRequestResult.cs" />
     <Compile Include="Models\OTCSRequestResultTypedList.cs" />

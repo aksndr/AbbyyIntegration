@@ -12,8 +12,10 @@ using WindowsService.Models;
 
 namespace WindowsService.Common
 {
-    public class Utils
+    public class Utils       
     {
+        private static Utils instance;
+        
         public static Authentication.OTAuthentication auth(string login, string password)
         {
             Authentication.AuthenticationClient authClient = new Authentication.AuthenticationClient();
@@ -64,7 +66,7 @@ namespace WindowsService.Common
             }
         }
 
-        public static void getVersionContent(Authentication.OTAuthentication otAuth, Record record)
+        public static bool getVersionContent(Authentication.OTAuthentication otAuth, Record record)
         {
             DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
             DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
@@ -81,10 +83,11 @@ namespace WindowsService.Common
                     content = attachment.Contents;
                     record.content = content;
                     record.fileName = attachment.FileName;
+                    return true;
                 }
                 else
                 {
-                    //TODO: Add error record to log add counter incrementation into table and getVersionContent method fail  
+                    //TODO: Add error record to log add counter incrementation into table and getVersionContent method fail                     
                 }
 
             }
@@ -93,7 +96,7 @@ namespace WindowsService.Common
                 Console.WriteLine(e.Message);
                 //TODO: Add error record to log add counter incrementation into table and getVersionContent method fail                
             }
-
+            return false;
 
         }
 

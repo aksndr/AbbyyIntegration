@@ -10,8 +10,7 @@ namespace WindowsService.Models
 
         public OTCSRequestResult()
         {
-            this.ok = false;
-            this.errMsg = "Error!";
+            this.ok = false;            
         }
 
         public bool ok { get; set; }
@@ -21,7 +20,7 @@ namespace WindowsService.Models
         public OTCSRequestResult setError(string errorText)
         {
             this.ok = false;
-            this.errMsg = this.errMsg + " " + errorText;
+            this.errMsg = errorText;
             return this;
         }
     }

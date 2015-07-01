@@ -5,37 +5,46 @@ using System.Text;
 using System.Configuration;
 using System.Web.Script.Serialization;
 using System.Runtime.Serialization;
+using NLog;
 
 using WindowsService.Common;
 
 namespace WindowsService.Models
 {
+    [DataContract]
     public class Settings
     {
-        private static string activeRecordsRequestHandlerURL;
-        private static string exportFormatsRequestHandlerURL;
-        private static string findObjectInOTCSbyBarcodeRequestHandlerURL;
-        private static string abbyyRSServicesUrl;
-        private static string abbyyRSLocation;
+        [DataMember]
+        public string activeRecordsRequestHandlerURL { get; set; }
+        [DataMember]
+        public string exportFormatsRequestHandlerURL { get; set; }
+        [DataMember]
+        public string findObjectInOTCSbyBarcodeRequestHandlerURL { get; set; }
+        [DataMember]
+        public string abbyyRSServicesUrl { get; set; }
+        [DataMember]
+        public string abbyyRSLocation { get; set; }
+        [DataMember]
+        public string login { get; set; }
+        [DataMember]
+        public string password { get; set; }
+        [DataMember]
+        public int otLogLevel { get; set; }
                 
         public static Settings instance;
+        private static readonly NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
 
-        public Settings() { }
-
-        public static Settings getInstance
+        public Settings()
         {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = new Settings();
-                }
-                return instance;
-            }
+            activeRecordsRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getRecordsToProceed";
+            exportFormatsRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getExportFormats";
+            abbyyRSServicesUrl = "http://localhost/Recognition4WS/RSSoapService.asmx";
+            findObjectInOTCSbyBarcodeRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getObjectInOTCSbyBarcode";
+            abbyyRSLocation = "localhost";
         }
 
-        public static Settings getSettings()        {
-            
+        public static Settings getSettings()        
+        {            
             if (instance == null)
             {
                 string rhUrl = null;
@@ -49,23 +58,18 @@ namespace WindowsService.Models
                 }
                 catch (Exception ex)
                 {
-                    Utils.logError("SettingsRequestHandlerURl parameter not found in app settings. Exception: "+ex.Message);
+                    log.Error("SettingsRequestHandlerURl parameter not found in app settings. Exception: "+ex.Message);
                     return instance = null;
                 }                               
 
                 
-                Utils.logInfo("App setting SettingsRequestHandlerURl value is: " + rhUrl);
+                log.Info("App setting SettingsRequestHandlerURl value is: " + rhUrl);
                 instance = readSettings(rhUrl.ToString());
-            }
-            
-
-            activeRecordsRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getRecordsToProceed";
-            exportFormatsRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getExportFormats";
-            abbyyRSServicesUrl = "http://localhost/Recognition4WS/RSSoapService.asmx";
-            findObjectInOTCSbyBarcodeRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getObjectInOTCSbyBarcode";
-            abbyyRSLocation = "localhost";
-            return instance;
+            }         
+                       
+            return validateFields();
         }
+               
 
         private static Settings readSettings(string rhUrl)
         {
@@ -77,8 +81,10 @@ namespace WindowsService.Models
             }
             catch (Exception ex)
             {
-               Utils.logError("Exeption while making request to url: " + rhUrl,ex);
+               log.Error("Exeption while making request to url: " + rhUrl,ex);
+               return null;
             }
+            
             if (r.ok)
             {
                 if (r.value != null)
@@ -87,40 +93,19 @@ namespace WindowsService.Models
                 }
                 else
                 {
-                    Utils.logError("Failed to gt any value from response while proceeding request to Request Handler: " + rhUrl);
+                    log.Error("Failed to gt any value from response while proceeding request to Request Handler: " + rhUrl);
                 }
-            }
-            else
+            }            
             {
-                Utils.logError("OTCS returned error: " + r.errMsg + "while proceeding request to Request Handler: " + rhUrl);
+                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
+                log.Error(s + " while proceeding request to Request Handler: " + rhUrl);
             }
             return null;
         }
 
-
-        public string getActiveRecordsRequestHandlerURL()
+        private static Settings validateFields()
         {
-            return activeRecordsRequestHandlerURL;
-        }
-
-        public string getAbbyyRSLocation()
-        {
-            return abbyyRSLocation;
-        }
-
-        public string getAbbyyRSServicesUrl()
-        {
-            return abbyyRSServicesUrl;
-        }
-
-        public string getExportFormatsRequestHandlerURL()
-        {
-            return exportFormatsRequestHandlerURL;
-        }
-
-        internal string getObjectInOTCSbyBarcodeRequestHandlerURL()
-        {
-            return findObjectInOTCSbyBarcodeRequestHandlerURL;
+            return instance;
         }
     }
 }
