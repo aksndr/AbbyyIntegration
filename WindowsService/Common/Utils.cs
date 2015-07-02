@@ -107,7 +107,7 @@ namespace WindowsService.Common
 
         internal static void sendFilesToAbbyyRS(Settings programSettings, List<Record> listToProceed)
         {            
-            String abbyyRSServicesUrl = programSettings.getAbbyyRSServicesUrl();
+            String abbyyRSServicesUrl = programSettings.abbyyRSServicesUrl;
 
             if (String.IsNullOrEmpty(abbyyRSServicesUrl))
             {
@@ -121,7 +121,7 @@ namespace WindowsService.Common
 
         internal static byte[] recognizeFile(Settings programSettings, Record record)
         {
-            String abbyyRSServicesUrl = programSettings.getAbbyyRSServicesUrl();
+            String abbyyRSServicesUrl = programSettings.abbyyRSServicesUrl;
 
             if (String.IsNullOrEmpty(abbyyRSServicesUrl))
             {
@@ -265,7 +265,7 @@ namespace WindowsService.Common
 
         internal static string decryptPass(string encryptedPass)
         {
-            throw encryptedPass;
+            return encryptedPass;
         }
     }
 }

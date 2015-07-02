@@ -19,21 +19,7 @@ namespace WindowsService.Common
 
         private Dictionary<string, byte[]> recognizedContent = new Dictionary<string, byte[]>();
         private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
-
-        public void addExportSettings(ExportSettings es)
-        {
-            int order = es.order;
-            if (!exportSettingsList.Contains(es))
-            {
-                exportSettingsList.Add(es);
-                exportSettingsList = exportSettingsList.OrderBy(o => o.order).ToList();
-            }
-            else
-            {
-                log.Warn("Found duplicate export settings for workType with ID: " + es.workTypeId);
-            }
-        }
-
+               
 
         //public bool proceedRecord(AbbyyRSWrapper abbyyRs)
         //{

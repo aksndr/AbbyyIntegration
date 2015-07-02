@@ -33,8 +33,8 @@ namespace WindowsService
         internal void run()
         {
             log.Info("RecognitionProcessManager started.");
-            l = settings.otLogLevel;
-            otAuth = Utils.auth(settings.login, settings.password);
+            l = settings.getOTLogLevel();
+            otAuth = Utils.auth(settings.getLogin(), settings.getPassword());
             if (otAuth.AuthenticationToken == string.Empty || otAuth.AuthenticationToken.Length == 0)
             {
                 log.Error("Failed to authenticate.");
