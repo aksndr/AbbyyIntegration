@@ -5,25 +5,24 @@ using System.Text;
 using WindowsService.Models;
 using WindowsService.RSSoapService;
 
+using NLog;
+
 namespace WindowsService.Common
 {
     public class AbbyyRSWrapper
     {
 
-        public AbbyyRSWrapper(Settings programSettings)
+        public AbbyyRSWrapper(Settings settings)
         {
             this.clientObject = new RSSoapService.RSSoapService();
-            this.location = programSettings.getAbbyyRSLocation();
-            this.clientObject.Url = programSettings.getAbbyyRSServicesUrl();
-
-        
+            this.location = settings.abbyyRSLocation;
+            this.clientObject.Url = settings.abbyyRSServicesUrl;        
         }
 
         private RSSoapService.RSSoapService clientObject;
+        private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
         private string workFlowName;
-        private string location;
-
-        //public Settings programSettings;
+        private string location;       
 
         List<OutputFormatSettings> formats = new List<OutputFormatSettings>();
 
@@ -35,10 +34,9 @@ namespace WindowsService.Common
 
         internal void setTimeout(int p)
         {
-            //this.clientObject.Timeout = p;
+            this.clientObject.Timeout = p;
         }
         
-                
 
         //public AbbyyRSWrapper addRecords(List<Record> recordsToProceed)
         //{
@@ -114,47 +112,48 @@ namespace WindowsService.Common
 
         public XmlTicket createTicket(ExportSettings es)
         {
-            XmlTicket ticket = clientObject.CreateTicket(this.location, es.workFlowName);
-            List<OutputFormatSettings> formats = new List<OutputFormatSettings>();
-            formats.Add(es.getFormat());
-            ticket.ExportParams.Formats = formats.ToArray();
-
-            return ticket;
+            try
+            {
+                XmlTicket ticket = clientObject.CreateTicket(this.location, es.workFlowName);
+                List<OutputFormatSettings> formats = new List<OutputFormatSettings>();
+                formats.Add(es.getFormat());
+                ticket.ExportParams.Formats = formats.ToArray();
+                return ticket;
+            }
+            catch (Exception e)
+            {
+                log.Error(e, "Exception in method 'createTicket' while trying to create ticket with location: '{0}' and workflow name: '{1}'.", new object[] { this.location, es.workFlowName });
+                return null;
+            }            
         }
-
-        public RSSoapService.RSSoapService getClientObject()
-        {
-            return this.clientObject;
-        }
-
-
+        
         public JobDocument[] processTicket(XmlTicket t, Record r, string workFlowName)
-        {
-            JobDocument[] jds = null;
+        {            
             try
             {
                 XmlResult xmlResult = clientObject.ProcessTicket(this.location, workFlowName, t);
                 
                 if (xmlResult.IsFailed)
                 {
-                    //Utils.logError("Recognition failed for object: " +r.objectId+ " version: "+r.versionNum+ " work type id: "+r.workTypeId);
-                    Console.WriteLine("Recognition failed");                    
+                    log.Error("Recognition failed for object: '{0}', version: '{1}', work type id: '{1}'.", new object[] { r.objectId, r.versionNum, r.workTypeId });
+                    return null;                 
                 }
                 else
-                {
-                    jds = xmlResult.JobDocuments;
-                    Console.WriteLine("Recognition passed");
+                {                    
+                    log.Info("Recognition succeed for object: '{0}', version: '{1}', work type id: '{1}'.", new object[] { r.objectId, r.versionNum, r.workTypeId });                    
+                    return xmlResult.JobDocuments;
                 }
-                
             }
             catch (Exception e)
             {
-                Console.WriteLine("Recognition failed: "+e.Message);  
-                //Utils.logError("Recognition failed for object: " + r.objectId + " version: " + r.versionNum + " work type id: " + r.workTypeId + " with exception: "+e.Message);
-            }
+                log.Error(e, "Exception in method 'processTicket' while trying to recognize object: '{0}', version: '{1}', using work type with id: '{1}'.", new object[] { r.objectId, r.versionNum, r.workTypeId });
+                return null;
+            }           
            
-            return jds;
-           
+        }
+        public RSSoapService.RSSoapService getClientObject()
+        {
+            return this.clientObject;
         }
     }
 }

@@ -101,6 +101,7 @@
     <Compile Include="Models\ExportSettings.cs" />
     <Compile Include="Models\OTCSRequestResult.cs" />
     <Compile Include="Models\OTCSRequestResultTypedList.cs" />
+    <Compile Include="Models\OTSettings.cs" />
     <Compile Include="Models\Record.cs" />
     <Compile Include="Models\Settings.cs" />
     <Compile Include="ProjectInstaller.cs">

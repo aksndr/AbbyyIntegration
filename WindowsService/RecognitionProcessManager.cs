@@ -27,17 +27,17 @@ namespace WindowsService
         {
             log.Info("RecognitionProcessManager init");
             settings = Settings.getSettings();
-
             if (settings == null) this.ready = false;
         }
 
         internal void run()
         {
+            log.Info("RecognitionProcessManager started.");
             l = settings.otLogLevel;
             otAuth = Utils.auth(settings.login, settings.password);
             if (otAuth.AuthenticationToken == string.Empty || otAuth.AuthenticationToken.Length == 0)
             {
-                log.Error("Error. Failed to authenticate");
+                log.Error("Failed to authenticate.");
                 return;
             }
             List<Record> activeRecords = getActiveRecordsList();
@@ -45,32 +45,29 @@ namespace WindowsService
             {
                 log.Error("Service finished caused by error.");
                 return;
-            }
-            
+            }            
             if (activeRecords.Count <= 0)           
             {
                 log.Info("No any records found in ready to proceed recognition state.");
                 return;
             }
+            log.Info("Got " + activeRecords.Count + " active record(s).");
             if (getRecordsContent(activeRecords)>0)
             {
                 proceedRecognition(activeRecords);
             }
-
-
-            throw new NotImplementedException();
+            log.Info("RecognitionProcessManager finished.");
         }
 
         private static List<Record> getActiveRecordsList()
         {
-            string url = settings.activeRecordsRequestHandlerURL;
+            string url = settings.activeRecordsRHURL;
             OTCSRequestResultTypedList<Record> r = new OTCSRequestResultTypedList<Record>();
             List<Record> listToProceed = new List<Record>();
             string res;
             try
             {
                 res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
-
             }
             catch (Exception ex)
             {
@@ -106,43 +103,50 @@ namespace WindowsService
             {
                 if (Utils.getVersionContent(otAuth, record)) i++;
             }
-            return i;
+            log.Info("Loaded content for " + i + " records.");
+            return i;            
         }
 
         private static void proceedRecognition(List<Record> activeRecords)
         {
-
             QueueManager qm = QueueManager.getInstance(settings);
             List<ExportSettings> exportSettingsList = getAllExportSettingsList();
+            
             if (exportSettingsList == null)
             {
                 log.Error("Service finished caused by error.");
                 return;
             }
-            if (exportSettingsList.Count > 0)
+            
+            if (exportSettingsList.Count == 0)
             {
-                qm.loadExportSettings(exportSettingsList).putRecordsList(activeRecords).buildWorkers();
+                log.Error("Service does not received any export settings from OTCS.");
+                return;
             }
+
+            qm.loadExportSettings(exportSettingsList).putRecordsList(activeRecords).buildWorkers();
 
             if (qm.isReady())
             {
-                qm.doRecognition();
-                qm.uploadResults(otAuth);
-            }
+                qm.doRecognition();               
+            }           
 
+            if (qm.hasRecognizedContent())
+            {
+                qm.uploadResults(otAuth);
+            }            
         }
 
         private static List<ExportSettings> getAllExportSettingsList()
         {
             OTCSRequestResultTypedList<ExportSettings> r = new OTCSRequestResultTypedList<ExportSettings>();
             List<ExportSettings> exportSettingsList = new List<ExportSettings>();
-            string url = settings.exportFormatsRequestHandlerURL;
+            string url = settings.exportFormatsRHURL;
 
             string res;
             try
             {
                 res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
-
             }
             catch (Exception ex)
             {
@@ -165,7 +169,7 @@ namespace WindowsService
             }
             else
             {
-                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
+                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error.");
                 log.Error(s + " while proceeding request to Request Handler: " + url);
                 return null;
             }

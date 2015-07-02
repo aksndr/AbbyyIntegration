@@ -8,6 +8,8 @@ using System.Runtime.Serialization;
 using WindowsService.Authentication;
 using WindowsService.Models;
 
+using NLog;
+
 namespace WindowsService.Common
 {
     class QueueManager
@@ -15,9 +17,12 @@ namespace WindowsService.Common
         private List<Record> recordsList;
         private Dictionary<int, IRecognitionWorker> workers;
         private List<ExportSettings> exportSettingsLibrary = new List<ExportSettings>();
-        public Settings settings;
+        private Settings settings;
         private AbbyyRSWrapper abbyyRs;
-        private bool ready = true;      
+        private bool ready = true;
+        private int recognizedContent = 0;
+
+        private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
 
         private QueueManager(Settings settings)
         {            
@@ -87,30 +92,6 @@ namespace WindowsService.Common
             
         }
 
-        
-                
-        //private Dictionary<int, List<Record>> splitList(List<Record> recordsList)
-        //{
-        //    Dictionary<int,List<Record>> splittedList = new Dictionary<int,List<Record>>();
-        //    foreach(Record r in recordsList){
-        //        int workTypeId = r.workTypeId;
-        //        List<Record> subList = null;
-        //        if (splittedList.ContainsKey(workTypeId))
-        //        {
-        //            splittedList.TryGetValue(workTypeId, out subList);
-        //        }
-        //        else
-        //        {
-        //            subList = new List<Record>();
-        //            splittedList.Add(workTypeId, subList);
-        //        }
-
-        //        if (subList != null)
-        //            subList.Add(r);
-        //    }
-        //    return splittedList;
-        //}
-
         private IRecognitionWorker createWorker(int workTypeId)
         {            
             switch (workTypeId)
@@ -126,8 +107,13 @@ namespace WindowsService.Common
             foreach (KeyValuePair<int, IRecognitionWorker> entry in workers)
             {
                 IRecognitionWorker worker = entry.Value;
-                worker.proceedRecord(this.abbyyRs);                
+                if (worker.proceedRecord(this.abbyyRs)) recognizedContent++;
             }
+        }
+
+        public bool hasRecognizedContent()
+        {
+            return (recognizedContent > 0);
         }
 
         public void uploadResults(OTAuthentication otAuth)
@@ -155,5 +141,10 @@ namespace WindowsService.Common
         }
 
         public string errMsg { get; set; }
+
+        public Settings getSettings()
+        {
+            return this.settings;
+        }
     }
 }

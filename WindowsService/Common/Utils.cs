@@ -8,6 +8,7 @@ using Authentication = WindowsService.Authentication;
 using ContentService = WindowsService.ContentService;
 using DocumentManagement = WindowsService.DocumentManagement;
 using WindowsService.Models;
+using NLog;
 
 
 namespace WindowsService.Common
@@ -15,12 +16,12 @@ namespace WindowsService.Common
     public class Utils       
     {
         private static Utils instance;
+        private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
         
         public static Authentication.OTAuthentication auth(string login, string password)
         {
             Authentication.AuthenticationClient authClient = new Authentication.AuthenticationClient();
             Authentication.OTAuthentication otAuth = new Authentication.OTAuthentication();
-
             try
             {
                 string authToken = authClient.AuthenticateUser(login, password);
@@ -28,7 +29,7 @@ namespace WindowsService.Common
             }
             catch (Exception e)
             {
-                // add e to log file
+                log.Error("Exception while proceeding authenticatiog for user: "+login+".",e);                
             }
             finally
             {
@@ -55,6 +56,11 @@ namespace WindowsService.Common
                 String responseText = readStream.ReadToEnd();
                 return responseText;
             }
+            catch (Exception e)
+            {
+                log.Error("Exception while proceeding OTCS request.", e);
+                return null;
+            }
             finally
             {
                 if (receiveStream != null)
@@ -62,7 +68,6 @@ namespace WindowsService.Common
                     receiveStream.Close();
                     receiveStream.Dispose();
                 }
-
             }
         }
 
@@ -256,6 +261,11 @@ namespace WindowsService.Common
         internal static void logInfo(string p)
         {
             throw new NotImplementedException();
+        }
+
+        internal static string decryptPass(string encryptedPass)
+        {
+            throw encryptedPass;
         }
     }
 }

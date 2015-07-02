@@ -10,102 +10,145 @@ using NLog;
 using WindowsService.Common;
 
 namespace WindowsService.Models
-{
-    [DataContract]
+{   
     public class Settings
     {
-        [DataMember]
-        public string activeRecordsRequestHandlerURL { get; set; }
-        [DataMember]
-        public string exportFormatsRequestHandlerURL { get; set; }
-        [DataMember]
-        public string findObjectInOTCSbyBarcodeRequestHandlerURL { get; set; }
-        [DataMember]
+        public string activeRecordsRHURL { get; set; }
+        public string exportFormatsRHURL { get; set; }
+        public string findByBcodeRHURL { get; set; }
         public string abbyyRSServicesUrl { get; set; }
-        [DataMember]
         public string abbyyRSLocation { get; set; }
-        [DataMember]
-        public string login { get; set; }
-        [DataMember]
-        public string password { get; set; }
-        [DataMember]
-        public int otLogLevel { get; set; }
-                
-        public static Settings instance;
-        private static readonly NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
+        public string otcsHostName { get; set; }
+        public string settingsRHURL { get; set; }
 
+        private OTSettings otSettings;
+                
+        private static Settings instance;        
+        private static readonly NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
+        private static bool settingsIsValid = false;
+        
         public Settings()
         {
-            activeRecordsRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getRecordsToProceed";
-            exportFormatsRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getExportFormats";
-            abbyyRSServicesUrl = "http://localhost/Recognition4WS/RSSoapService.asmx";
-            findObjectInOTCSbyBarcodeRequestHandlerURL = "http://localhost/OTCS/cs.exe?func=abbyyIntegration.getObjectInOTCSbyBarcode";
-            abbyyRSLocation = "localhost";
+            readAppSettings();
+            readOTSettings(); 
         }
 
-        public static Settings getSettings()        
-        {            
+        public static Settings getSettings()
+        {
             if (instance == null)
             {
-                string rhUrl = null;
-                try
-                {
-                    rhUrl = ConfigurationManager.AppSettings["SettingsRequestHandlerURl"];
-                    if (String.IsNullOrEmpty(rhUrl))
-                    {
-                        return instance = null;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    log.Error("SettingsRequestHandlerURl parameter not found in app settings. Exception: "+ex.Message);
-                    return instance = null;
-                }                               
-
-                
-                log.Info("App setting SettingsRequestHandlerURl value is: " + rhUrl);
-                instance = readSettings(rhUrl.ToString());
-            }         
-                       
-            return validateFields();
+                instance = new Settings();
+                if (!settingsIsValid) return instance = null;                               
+            }
+            return instance;
         }
-               
 
-        private static Settings readSettings(string rhUrl)
+        private void readAppSettings()
+        {
+            try
+            {
+                settingsRHURL = ConfigurationManager.AppSettings["SettingsRequestHandlerURl"];
+                activeRecordsRHURL = ConfigurationManager.AppSettings["ActiveRecordsRequestHandlerURl"];
+                exportFormatsRHURL = ConfigurationManager.AppSettings["ExportFormatsRequestHandlerURl"];
+                findByBcodeRHURL = ConfigurationManager.AppSettings["FindByBarcodeRequestHandlerURl"];
+                abbyyRSServicesUrl = ConfigurationManager.AppSettings["AbbyyRSServicesURL"];
+                abbyyRSLocation = ConfigurationManager.AppSettings["AbbyyRSSURL"];
+                otcsHostName = ConfigurationManager.AppSettings["OTCSHostName"];
+            }
+            catch (Exception e)
+            {
+                log.Error(e, "Exception while reading settings fro application config file.", null);
+                return;
+
+            }
+            if (String.IsNullOrEmpty(settingsRHURL) || String.IsNullOrEmpty(activeRecordsRHURL) || String.IsNullOrEmpty(exportFormatsRHURL) ||
+                String.IsNullOrEmpty(findByBcodeRHURL) || String.IsNullOrEmpty(abbyyRSServicesUrl) || String.IsNullOrEmpty(abbyyRSLocation))
+            {
+                string s = "Application parametr '{0}' is not setted properly. Please check configuration file.";
+                if (String.IsNullOrEmpty(settingsRHURL))
+                    log.Error(s, new object[] { "SettingsRequestHandlerURl" });
+                if (String.IsNullOrEmpty(activeRecordsRHURL))
+                    log.Error(s, new object[] { "ActiveRecordsRequestHandlerURl" });
+                if (String.IsNullOrEmpty(exportFormatsRHURL))
+                    log.Error(s, new object[] { "ExportFormatsRequestHandlerURl" });
+                if (String.IsNullOrEmpty(findByBcodeRHURL))
+                    log.Error(s, new object[] { "FindByBarcodeRequestHandlerURl" });
+                if (String.IsNullOrEmpty(abbyyRSServicesUrl))
+                    log.Error(s, new object[] { "AbbyyRSServicesURL" });
+                if (String.IsNullOrEmpty(abbyyRSLocation))
+                    log.Error(s, new object[] { "AbbyyRSSURL" });
+            }
+            else
+            {
+                settingsIsValid = true;
+                string s = "App setting '{0}' value is: '{1}'.";
+                log.Info(s, new object[] {"SettingsRequestHandlerURl", settingsRHURL});
+                log.Info(s, new object[] { "ActiveRecordsRequestHandlerURl", activeRecordsRHURL });
+                log.Info(s, new object[] { "ExportFormatsRequestHandlerURl", exportFormatsRHURL });
+                log.Info(s, new object[] { "FindByBarcodeRequestHandlerURl", findByBcodeRHURL });
+                log.Info(s, new object[] { "AbbyyRSServicesURL", abbyyRSServicesUrl });
+                log.Info(s, new object[] { "AbbyyRSSURL", abbyyRSLocation });
+            }
+        }
+        // продолжать здесь
+        private OTSettings readOTSettings()
         {
             OTCSRequestResult r = new OTCSRequestResult();
             try
-            {                
-                string reqRes = Utils.makeUnAuthenticatedOTCSRequest(rhUrl);
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResult>(reqRes);
+            {
+                string res = Utils.makeUnAuthenticatedOTCSRequest(settingsRHURL);
+                r = new JavaScriptSerializer().Deserialize<OTCSRequestResult>(res);
             }
             catch (Exception ex)
             {
-               log.Error("Exeption while making request to url: " + rhUrl,ex);
-               return null;
+                log.Error("Exeption while making request to url: " + settingsRHURL, ex);
+                return null;
             }
-            
+
             if (r.ok)
             {
                 if (r.value != null)
                 {
-                    return (Settings)r.value;
+                    return (OTSettings)r.value;
                 }
                 else
                 {
-                    log.Error("Failed to gt any value from response while proceeding request to Request Handler: " + rhUrl);
+                    log.Error("Failed to gt any value from response while proceeding request to Request Handler: " + settingsRHURL);
                 }
-            }            
+            }
             {
                 string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
-                log.Error(s + " while proceeding request to Request Handler: " + rhUrl);
+                log.Error(s + " while proceeding request to Request Handler: " + settingsRHURL);
             }
             return null;
         }
 
-        private static Settings validateFields()
+        public string getLogin()
         {
-            return instance;
+            return otSettings.login;
         }
-    }
+
+        public string getPassword()
+        {
+            string encryptedPass = otSettings.password;
+            string decryptedPass = Utils.decryptPass(encryptedPass);
+            return decryptedPass;
+        }
+
+        public int getOTLogLevel()
+        {
+            return otSettings.otLogLevel;
+        }
+        
+        public int getBarcodeStartPos() 
+        {
+            return otSettings.barcodeStartPos;
+        }
+
+        public int getBarcodeEndPos()
+        {
+            return otSettings.barcodeEndPos;
+        }       
+    }   
+    
 }
