@@ -27,7 +27,8 @@ namespace WindowsService
         {
             log.Info("RecognitionProcessManager init");
             settings = Settings.getSettings();
-            if (settings == null) this.ready = false;
+            this.ready = (settings == null) ? false : true;
+
         }
 
         internal void run()
@@ -56,6 +57,7 @@ namespace WindowsService
             {
                 proceedRecognition(activeRecords);
             }
+
             log.Info("RecognitionProcessManager finished.");
         }
 

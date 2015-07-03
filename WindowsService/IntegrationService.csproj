@@ -93,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common\AbbyyRSWrapper.cs" />
+    <Compile Include="Common\JSONHelper.cs" />
     <Compile Include="Common\qm\BarcodeWorker.cs" />
     <Compile Include="Common\qm\DefaultWorker.cs" />
     <Compile Include="Common\qm\IRecognitionWorker.cs" />
@@ -100,9 +101,11 @@
     <Compile Include="Common\Utils.cs" />
     <Compile Include="Models\ExportSettings.cs" />
     <Compile Include="Models\OTCSRequestResult.cs" />
+    <Compile Include="Models\OTCSRequestResultT.cs" />
     <Compile Include="Models\OTCSRequestResultTypedList.cs" />
     <Compile Include="Models\OTSettings.cs" />
     <Compile Include="Models\Record.cs" />
+    <Compile Include="Models\RecordStates.cs" />
     <Compile Include="Models\Settings.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>

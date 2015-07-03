@@ -57,7 +57,7 @@ namespace WindowsService.Common
         //    return true;                  
         //}
 
-        private void addResultToRecognizedContentList(JobDocument[] jds)
+        protected override void addResultToRecognizedContentList(JobDocument[] jds)
         {
             foreach (JobDocument jd in jds)
             {
@@ -65,20 +65,20 @@ namespace WindowsService.Common
                 byte[] content = jd.OutputDocuments[0].Files[0].FileContents;
                 if (recognizedContent.Keys.Contains(barcode))
                 {
-                    log.Warn("Recognized content contains duplicate barcode result sets.");
+                    log.Warn("Recognized content contains duplicate barcode result sets."); //TODO: Сделать добавление обоих результатов, на случай добавления как вложений в составной документ
                     continue;
                 }
                 recognizedContent.Add(barcode, content); 
             }
         }
-        
-        public void uploadResult(OTAuthentication otAuth)
+
+        public override void uploadResult(OTAuthentication otAuth)
         {
             this.otAuth = otAuth;
-            
+            bool versionAdded = false;
             foreach (KeyValuePair<string, byte[]> entry in recognizedContent)
             {
-                int targetObjectId = findObjectInOTCSbyBarcode(entry.Key);
+                int targetObjectId = findObjectInOTCSbyBarcode(entry.Key); //TODO: Сделать определение типа - составной\обычный. Для составных дублирующиеся баркоды класть в виде отдельных вложений (или искать по названию файла) для обычных - хз что делать.
                 if (targetObjectId ==0 )
                 {
                     log.Warn("Object has not been found by barcode: " + entry.Key);
@@ -89,11 +89,12 @@ namespace WindowsService.Common
                     string contextId = getVersionContext(targetObjectId);
                     if (string.IsNullOrEmpty(contextId)) continue;
 
-                    if (addVersion(contextId, entry.Value, targetObjectId))
-                        updateVersionDescription(targetObjectId);
+                    versionAdded = addVersion(contextId, entry.Value, targetObjectId);
+                    if (versionAdded) updateVersionDescription(targetObjectId);                    
                 }
-            }                        
-        }
+            }
+            if (versionAdded) updateRecordState(RecordStates.complete, record.objectId); 
+        }              
 
         //private int findObjectInOTCSbyBarcode(string barcode)
         //{
@@ -190,7 +191,7 @@ namespace WindowsService.Common
         //    }
         //}
 
-        private List<InputFile[]> getInputFilesFromJobDocuments(JobDocument[] jds)
+        protected override List<InputFile[]> getInputFilesFromJobDocuments(JobDocument[] jds)
         {
             var vs = jds.Select(jd => jd.CustomText.Substring(0, 7)).Distinct();
             List<JobDocument[]> jdaList = new List<JobDocument[]>(vs.Count());

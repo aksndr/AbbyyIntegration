@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Web.Script.Serialization;
+using System.Runtime.Serialization;
+
 using WindowsService.Models;
 using WindowsService.RSSoapService;
 using WindowsService.Authentication;
@@ -113,10 +116,10 @@ namespace WindowsService.Common
             return true;
         }
 
-        private List<InputFile[]> getInputFilesFromJobDocuments(JobDocument[] jds)
+        protected virtual List<InputFile[]> getInputFilesFromJobDocuments(JobDocument[] jds)
         {
             List<InputFile[]> list = new List<InputFile[]>(jds.Count());
-                        
+
             foreach (JobDocument jd in jds)
             {
                 List<InputFile> inputFiles = new List<InputFile>();
@@ -138,7 +141,7 @@ namespace WindowsService.Common
             return this.getManager().getSettings();
         }
 
-        private void addResultToRecognizedContentList(JobDocument[] jds)
+        protected virtual void addResultToRecognizedContentList(JobDocument[] jds)
         {
             foreach (JobDocument jd in jds)
             {
@@ -162,10 +165,10 @@ namespace WindowsService.Common
             }
         }
 
-        public void uploadResult(OTAuthentication otAuth)
+        public virtual void uploadResult(OTAuthentication otAuth)
         {
             this.otAuth = otAuth;
-
+            bool versionAdded = false;
             foreach (KeyValuePair<int, List<byte[]>> entry in recognizedContent)
             {
                 int targetObjectId = entry.Key;
@@ -174,9 +177,46 @@ namespace WindowsService.Common
                 if (string.IsNullOrEmpty(contextId)) continue;
                 foreach (byte[] content in entry.Value)
                 {
-                    if (addVersion(contextId, content, targetObjectId))
-                        updateVersionDescription(targetObjectId);
+                    versionAdded = addVersion(contextId, content, targetObjectId);
+                    if (versionAdded) updateVersionDescription(targetObjectId);
                 }
+            }
+            if (versionAdded) updateRecordState(RecordStates.complete, record.objectId);
+        }
+
+        internal void updateRecordState(RecordStates recordState, int objectId, bool increment = false)
+        {
+            string url = getSettings().updateStateRHURL;
+            OTCSRequestResult r = new OTCSRequestResult();
+
+            string res = null;
+            try
+            {
+                url = url + "&state=" + recordState.ToString(); //TODO: Обернуть в нормальную функцию
+                url = url + "&objectId=" + objectId.ToString();
+                url = url + "&increment=" + increment.ToString();
+                res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Exception while making request to OTCS system from service tier.", ex);
+            }
+            try
+            {
+                r = new JavaScriptSerializer().Deserialize<OTCSRequestResult>(res);
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex, "Exception while Deserialize OTCS request result: {0}", new object[] { res });
+            }
+            if (r.ok)
+            {
+                log.Info("Record with objectId = '{0}' state updated to value: '{1}'.", new object[] { objectId, recordState });
+            }
+            else
+            {
+                string s = (String.IsNullOrEmpty(r.errMsg) ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error.");
+                log.Error(s + " while proceeding request to Request Handler: " + url);
             }
         }
 
@@ -277,7 +317,7 @@ namespace WindowsService.Common
         //    return inputFiles;
         //}
 
-        private InputFile[] getInputFilesFromOutputDocuments(OutputDocument od)
+        protected virtual InputFile[] getInputFilesFromOutputDocuments(OutputDocument od)
         {
             FileContainer[] files = od.Files;
             List<InputFile> inputFiles = new List<InputFile>(files.Count());

@@ -71,6 +71,39 @@ namespace WindowsService.Common
             }
         }
 
+        internal static string makeUnAuthenticatedOTCSRequest(string requestUrl)
+        {
+            Stream receiveStream = null;
+            try
+            {
+                HttpWebRequest requestLL = (HttpWebRequest)WebRequest.Create(requestUrl);
+                requestLL.Method = "GET";
+                //requestLL.Headers.Add("Cookie", "LLCookie=" + authToken + ", LLTZCookie=0");
+
+                HttpWebResponse responseLL = null;
+                responseLL = (HttpWebResponse)requestLL.GetResponse();
+                receiveStream = responseLL.GetResponseStream();
+                Encoding encode = System.Text.Encoding.GetEncoding("utf-8");
+
+                StreamReader readStream = new StreamReader(receiveStream, encode);
+                String responseText = readStream.ReadToEnd();
+                return responseText;
+            }
+            catch (Exception e)
+            {
+                log.Error("Exception while proceeding OTCS request.", e);
+                return null;
+            }
+            finally
+            {
+                if (receiveStream != null)
+                {
+                    receiveStream.Close();
+                    receiveStream.Dispose();
+                }
+            }
+        }
+
         public static bool getVersionContent(Authentication.OTAuthentication otAuth, Record record)
         {
             DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
@@ -105,38 +138,7 @@ namespace WindowsService.Common
 
         }
 
-        internal static void sendFilesToAbbyyRS(Settings programSettings, List<Record> listToProceed)
-        {            
-            String abbyyRSServicesUrl = programSettings.abbyyRSServicesUrl;
-
-            if (String.IsNullOrEmpty(abbyyRSServicesUrl))
-            {
-                //TODO: Add error record to log
-                return;
-            }
-
-            
-
-        }
-
-        internal static byte[] recognizeFile(Settings programSettings, Record record)
-        {
-            String abbyyRSServicesUrl = programSettings.abbyyRSServicesUrl;
-
-            if (String.IsNullOrEmpty(abbyyRSServicesUrl))
-            {
-                //TODO: Add error record to log
-                return null;
-            }
-
-          
-
-
-            return null;
-        }
-
-
-
+        
         public static string[] getFromMetadataLangArray(DocumentManagement.MetadataLanguage[] langs)
         {
             List<string> list = new List<string>();
@@ -247,11 +249,7 @@ namespace WindowsService.Common
                 }
             }
         }
-
-        internal static string makeUnAuthenticatedOTCSRequest(string rhUrl)
-        {
-            throw new NotImplementedException();
-        }
+               
 
         internal static void logError(string p, Exception ex)
         {
