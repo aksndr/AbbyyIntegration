@@ -4,10 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Net;
 using System.IO;
+using System.Web.Script.Serialization;
+using System.Runtime.Serialization;
+
 using Authentication = WindowsService.Authentication;
 using ContentService = WindowsService.ContentService;
 using DocumentManagement = WindowsService.DocumentManagement;
 using WindowsService.Models;
+
 using NLog;
 
 
@@ -43,13 +47,13 @@ namespace WindowsService.Common
             Stream receiveStream = null;
             try
             {
-                HttpWebRequest requestLL = (HttpWebRequest)WebRequest.Create(requestUrl);
-                requestLL.Method = "GET";
-                requestLL.Headers.Add("Cookie", "LLCookie=" + authToken + ", LLTZCookie=0");
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(requestUrl);
+                request.Method = "GET";
+                request.Headers.Add("Cookie", "LLCookie=" + authToken + ", LLTZCookie=0");
+                request.Timeout = 15000;
 
-                HttpWebResponse responseLL = null;
-                responseLL = (HttpWebResponse)requestLL.GetResponse();
-                receiveStream = responseLL.GetResponseStream();
+                HttpWebResponse response = (HttpWebResponse)request.GetResponse();                
+                receiveStream = response.GetResponseStream();
                 Encoding encode = System.Text.Encoding.GetEncoding("utf-8");
 
                 StreamReader readStream = new StreamReader(receiveStream, encode);
@@ -103,6 +107,83 @@ namespace WindowsService.Common
                 }
             }
         }
+
+
+        public static T getOTCSValue<T>(string authToken, string url, Dictionary<string, string> requestParams)
+        {
+
+            if (requestParams != null)
+            {
+                foreach (var param in requestParams)
+                {
+                    url += "&" + param.Key + "=" + param.Value;
+                }
+            }
+            return getOTCSValue<T>(authToken,url);
+        }
+
+
+        public static T getOTCSValue<T>(string authToken, string url, string paramName, string paramValue)
+        {
+            url += "&" + paramName + "=" + paramValue;
+            return getOTCSValue<T>(authToken, url);
+        }
+
+
+        public static T getOTCSValue<T>(string authToken, string url)
+        {
+            OTCSRequestResultT<T> r = new OTCSRequestResultT<T>();
+            string res;
+            try
+            {
+                if (authToken != null)
+                {
+                    res = Utils.makeOTCSRequest(authToken, url);
+                }
+                else
+                {
+                    res = Utils.makeUnAuthenticatedOTCSRequest(url);
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex, "Exception while making request to OTCS system from service tier to url: {0}", new object[] { url });
+                return default(T);
+            }
+            if (res == null)
+            {
+                log.Error("Failed to get response from OTCS while proceeding request to Request Handler: " + url);
+                return default(T);
+            }
+            try
+            {
+                r = new JavaScriptSerializer().Deserialize<OTCSRequestResultT<T>>(res);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Exception while Deserialize OTCS request result: " + res, ex);                
+                return default(T);
+            }
+            if (r.ok)
+            {
+                if (r.value != null)
+                {
+                    return r.value;
+                }
+                else
+                {
+                    log.Error("Failed to gt any value from response while proceeding request to Request Handler: " + url);                    
+                    return default(T);
+                }
+            }
+            else
+            {
+                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
+                log.Error(s + " while proceeding request to Request Handler: " + url);                
+                return default(T);
+            }
+        }
+
 
         public static bool getVersionContent(Authentication.OTAuthentication otAuth, Record record)
         {

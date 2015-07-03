@@ -132,48 +132,52 @@ namespace WindowsService.Common
         //}
 
         private int findObjectInOTCSbyBarcode(string barcode)
-        {
-            string url = getSettings().findByBcodeRHURL;
-            OTCSRequestResult r = new OTCSRequestResult();
+        {            
 
-            string res;
-            try
-            {
-                url = url + "&barcode=" + barcode;
-                res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while making request to OTCS system from service tier.", ex);
-                return 0;
-            }
-            try
-            {
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResult>(res);
-            }
-            catch (Exception ex)
-            {
-                log.Error(ex, "Exception while Deserialize OTCS request result: {0}", new object[]{res});
-                return 0;
-            }
-            if (r.ok)
-            {
-                if (r.value != null)
-                {
-                    return (Int32)r.value;
-                }
-                else
-                {
-                    log.Error("OTCS request returned 'NULL', while success marker 'ok' has value equals 'true', while proceeding request to Request Handler: " + url);
-                    return 0;
-                }
-            }
-            else
-            {
-                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error.");
-                log.Error(s + " while proceeding request to Request Handler: " + url);
-                return 0;
-            }            
+            Int32 objectId = Utils.getOTCSValue<Int32>(otAuth.AuthenticationToken, getSettings().findByBcodeRHURL, "barcode", barcode);
+
+            return objectId;         
+
+
+
+            //string res;
+            //try
+            //{
+            //    url = url + "&barcode=" + barcode;
+            //    res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
+            //}
+            //catch (Exception ex)
+            //{
+            //    log.Error("Exception while making request to OTCS system from service tier.", ex);
+            //    return 0;
+            //}
+            //try
+            //{
+            //    r = new JavaScriptSerializer().Deserialize<OTCSRequestResult>(res);
+            //}
+            //catch (Exception ex)
+            //{
+            //    log.Error(ex, "Exception while Deserialize OTCS request result: {0}", new object[]{res});
+            //    return 0;
+            //}
+            //if (r.ok)
+            //{
+            //    if (r.value != null)
+            //    {
+            //        return (Int32)r.value;
+            //    }
+            //    else
+            //    {
+            //        log.Error("OTCS request returned 'NULL', while success marker 'ok' has value equals 'true', while proceeding request to Request Handler: " + url);
+            //        return 0;
+            //    }
+            //}
+            //else
+            //{
+            //    string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error.");
+            //    log.Error(s + " while proceeding request to Request Handler: " + url);
+            //    return 0;
+            //}            
         }
                      
                 

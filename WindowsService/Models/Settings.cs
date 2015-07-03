@@ -95,51 +95,19 @@ namespace WindowsService.Models
             log.Info(s, new object[] { "AbbyyRSSURL", abbyyRSLocation });
         }
         
-
         private void readOTSettings()
         {
-            OTCSRequestResultT<OTSettings> r = new OTCSRequestResultT<OTSettings>();            
-            string res;
-            try
+            OTSettings ots = Utils.getOTCSValue<OTSettings>(null, settingsRHURL);
+            if (ots != null)
             {
-                res = Utils.makeUnAuthenticatedOTCSRequest(settingsRHURL);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while making request to OTCS system from service tier to url: " + settingsRHURL, ex);
-                settingsIsValid = false;
-                return;
-            }
-            try
-            {
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResultT<OTSettings>>(res);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while Deserialize OTCS request result: " + res, ex);
-                settingsIsValid = false;
-                return;
-            }
-            if (r.ok)
-            {
-                if (r.value != null)
-                {                    
-                    this.otSettings = r.value;
-                }
-                else
-                {
-                    log.Error("Failed to gt any value from response while proceeding request to Request Handler: " + settingsRHURL);
-                    settingsIsValid = false;
-                    return;
-                }
+                settingsIsValid = true;
+                this.otSettings = ots;
             }
             else
             {
-                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
-                log.Error(s + " while proceeding request to Request Handler: " + settingsRHURL);
                 settingsIsValid = false;
-                return;
-            }
+                this.otSettings = null;
+            }            
         }
         
         public string getLogin()

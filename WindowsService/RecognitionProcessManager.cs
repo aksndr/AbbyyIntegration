@@ -28,7 +28,6 @@ namespace WindowsService
             log.Info("RecognitionProcessManager init");
             settings = Settings.getSettings();
             this.ready = (settings == null) ? false : true;
-
         }
 
         internal void run()
@@ -63,39 +62,10 @@ namespace WindowsService
 
         private static List<Record> getActiveRecordsList()
         {
-            string url = settings.activeRecordsRHURL;
-            OTCSRequestResultTypedList<Record> r = new OTCSRequestResultTypedList<Record>();
             List<Record> listToProceed = new List<Record>();
-            string res;
-            try
-            {
-                res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while making request to OTCS system from service tier.", ex);
-                return null;
-            }
-            try
-            {
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResultTypedList<Record>>(res);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while Deserialize OTCS request result: " + res, ex);
-                return null;
-            }
-            if (r.ok)
-            {
-                listToProceed.AddRange((List<Record>)r.value);
-                return listToProceed;
-            }
-            else
-            {
-                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
-                log.Error(s + " while proceeding request to Request Handler: " + url);
-                return null;
-            }
+            listToProceed.AddRange(Utils.getOTCSValue<List<Record>>(otAuth.AuthenticationToken, settings.activeRecordsRHURL));
+
+            return listToProceed;
         }
 
         private static int getRecordsContent(List<Record> activeRecords)
@@ -141,40 +111,10 @@ namespace WindowsService
 
         private static List<ExportSettings> getAllExportSettingsList()
         {
-            OTCSRequestResultTypedList<ExportSettings> r = new OTCSRequestResultTypedList<ExportSettings>();
             List<ExportSettings> exportSettingsList = new List<ExportSettings>();
-            string url = settings.exportFormatsRHURL;
+            exportSettingsList.AddRange(Utils.getOTCSValue<List<ExportSettings>>(otAuth.AuthenticationToken, settings.exportFormatsRHURL));
 
-            string res;
-            try
-            {
-                res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while making request to OTCS system from service tier.", ex);
-                return null;
-            }
-            try
-            {
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResultTypedList<ExportSettings>>(res);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while Deserialize OTCS request result: " + res, ex);
-                return null;
-            }
-            if (r.ok)
-            {
-                exportSettingsList.AddRange((List<ExportSettings>)r.value);
-                return exportSettingsList;
-            }
-            else
-            {
-                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error.");
-                log.Error(s + " while proceeding request to Request Handler: " + url);
-                return null;
-            }
+            return exportSettingsList;
         }
 
         internal bool isReady()

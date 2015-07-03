@@ -187,37 +187,24 @@ namespace WindowsService.Common
         internal void updateRecordState(RecordStates recordState, int objectId, bool increment = false)
         {
             string url = getSettings().updateStateRHURL;
-            OTCSRequestResult r = new OTCSRequestResult();
 
-            string res = null;
-            try
-            {
-                url = url + "&state=" + recordState.ToString(); //TODO: Обернуть в нормальную функцию
-                url = url + "&objectId=" + objectId.ToString();
-                url = url + "&increment=" + increment.ToString();
-                res = Utils.makeOTCSRequest(otAuth.AuthenticationToken, url);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while making request to OTCS system from service tier.", ex);
-            }
-            try
-            {
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResult>(res);
-            }
-            catch (Exception ex)
-            {
-                log.Error(ex, "Exception while Deserialize OTCS request result: {0}", new object[] { res });
-            }
-            if (r.ok)
+            Dictionary<string, string> requestParams = new Dictionary<string, string>(3);
+            requestParams.Add("state", recordState.ToString());
+            requestParams.Add("objectId", objectId.ToString());
+            requestParams.Add("increment", increment.ToString());
+
+            Int32 updated = Utils.getOTCSValue<Int32>(otAuth.AuthenticationToken, getSettings().updateStateRHURL, requestParams);
+
+            if (updated>0)
             {
                 log.Info("Record with objectId = '{0}' state updated to value: '{1}'.", new object[] { objectId, recordState });
             }
             else
             {
-                string s = (String.IsNullOrEmpty(r.errMsg) ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error.");
-                log.Error(s + " while proceeding request to Request Handler: " + url);
+                log.Info("Failed to update Record with objectId = '{0}' state.", new object[] { objectId });
             }
+
+            
         }
 
         internal string getVersionContext(int objectId)
