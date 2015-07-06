@@ -15,61 +15,51 @@ namespace WindowsService.Common
     class QueueManager
     {                
         private List<Record> recordsList;
-        private Dictionary<int, IRecognitionWorker> workers;
+        private Dictionary<int, IRecognitionWorker> workers = new Dictionary<int, IRecognitionWorker>();
         private List<ExportSettings> exportSettingsLibrary = new List<ExportSettings>();
-        private Settings settings;
+        private OTUtils otUtils;
         private AbbyyRSWrapper abbyyRs;
         private bool ready = true;
         private int recognizedContent = 0;
 
         private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
 
-        private QueueManager(Settings settings)
-        {            
-            this.workers = new Dictionary<int, IRecognitionWorker>();
-            this.abbyyRs = new AbbyyRSWrapper(settings);
-            this.settings = settings;
+        private QueueManager(OTUtils otUtils)
+        {
+            this.abbyyRs = new AbbyyRSWrapper(otUtils.getSettings());
+            this.otUtils = otUtils;
+            loadExportSettings();
         }
 
-        public static QueueManager getInstance(Settings settings)
+        public static QueueManager getInstance(OTUtils otUtils)
         {
-            return new QueueManager(settings);            
+            return new QueueManager(otUtils);            
         }
 
-        public QueueManager loadExportSettings(List<ExportSettings> exportSettingsList)
+
+        public void loadExportSettings()
         {
-            //foreach (ExportSettings es in exportSettingsList)
-            //{
-            //    int esId = es.ID;
-            //    this.exportSettingsLibrary.Add(es);
-            //}            
-            this.exportSettingsLibrary = exportSettingsList;
+           this.exportSettingsLibrary = otUtils.getAllExportSettingsList(); 
+            
             if (this.exportSettingsLibrary.Count == 0)
             {
                 this.ready = false;
                 this.errMsg = "QueueManager does not received any Export Settings.";
-            }
-            return this;
+            }           
         }        
         
-        public QueueManager putRecordsList(List<Record> recordsList){
+        public void putRecordsList(List<Record> recordsList){
             this.recordsList = recordsList;
             if (this.recordsList.Count == 0)
             {
                 this.ready = false;
                 this.errMsg = "QueueManager does not received any records to proceed recognition.";
-            }
-            return this;
-        }
-                
+            }           
+        }                
 
-        public Dictionary<int, IRecognitionWorker> getWorkers()
+        public QueueManager buildWorkers(List<Record> recordsList)
         {
-            return workers;
-        }
-
-        public QueueManager buildWorkers()
-        {
+            putRecordsList(recordsList);
             foreach (Record r in this.recordsList)
             {                
                 IRecognitionWorker worker;
@@ -116,13 +106,18 @@ namespace WindowsService.Common
             return (recognizedContent > 0);
         }
 
-        public void uploadResults(OTAuthentication otAuth)
+        public void uploadResults()
         {
             foreach (KeyValuePair<int, IRecognitionWorker> entry in workers)
             {
                 IRecognitionWorker worker = entry.Value;
-                worker.uploadResult(otAuth);
+                worker.uploadResult();
             }
+        }
+
+        public Dictionary<int, IRecognitionWorker> getWorkers()
+        {
+            return workers;
         }
 
         public AbbyyRSWrapper getAbbyService()
@@ -142,9 +137,14 @@ namespace WindowsService.Common
 
         public string errMsg { get; set; }
 
+        public OTUtils getOTUtils()
+        {
+            return this.otUtils;
+        }
+
         public Settings getSettings()
         {
-            return this.settings;
+            return this.otUtils.getSettings();
         }
     }
 }

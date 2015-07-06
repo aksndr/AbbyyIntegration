@@ -8,6 +8,6 @@ namespace WindowsService.Common
         void setRecord(Record record);
         bool proceedRecord(AbbyyRSWrapper abbyyRs);
         void setQueueManager(QueueManager qm);
-        void uploadResult(Authentication.OTAuthentication otAuth);
+        void uploadResult();
     }
 }

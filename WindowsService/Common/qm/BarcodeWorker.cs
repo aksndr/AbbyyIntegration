@@ -72,13 +72,13 @@ namespace WindowsService.Common
             }
         }
 
-        public override void uploadResult(OTAuthentication otAuth)
-        {
-            this.otAuth = otAuth;
+        public override void uploadResult()
+        {            
             bool versionAdded = false;
             foreach (KeyValuePair<string, byte[]> entry in recognizedContent)
             {
-                int targetObjectId = findObjectInOTCSbyBarcode(entry.Key); //TODO: Сделать определение типа - составной\обычный. Для составных дублирующиеся баркоды класть в виде отдельных вложений (или искать по названию файла) для обычных - хз что делать.
+                int targetObjectId = findObjectInOTCSbyBarcode(entry.Key); 
+                //TODO: Сделать определение типа - составной\обычный. Для составных дублирующиеся баркоды класть в виде отдельных вложений (или искать по названию файла) для обычных - хз что делать.
                 if (targetObjectId ==0 )
                 {
                     log.Warn("Object has not been found by barcode: " + entry.Key);
@@ -134,7 +134,7 @@ namespace WindowsService.Common
         private int findObjectInOTCSbyBarcode(string barcode)
         {            
 
-            Int32 objectId = Utils.getOTCSValue<Int32>(otAuth.AuthenticationToken, getSettings().findByBcodeRHURL, "barcode", barcode);
+            Int32 objectId = getManager().getOTUtils().getOTCSValue<Int32>(getSettings().findByBcodeRHURL, "barcode", barcode);
 
             return objectId;         
 

@@ -17,30 +17,31 @@ namespace WindowsService
     class RecognitionProcessManager
     {
         private static Settings settings;
-        private static WindowsService.Authentication.OTAuthentication otAuth;
+        private static OTUtils otUtils;
+        //private static WindowsService.Authentication.OTAuthentication otAuth;
         private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
 
         private bool ready = false;
-        private int l = 0;
-
+                        
         public RecognitionProcessManager()
         {
             log.Info("RecognitionProcessManager init");
             settings = Settings.getSettings();
             this.ready = (settings == null) ? false : true;
+            otUtils = OTUtils.init(settings);
         }
 
         internal void run()
         {
             log.Info("RecognitionProcessManager started.");
-            l = settings.getOTLogLevel();
-            otAuth = Utils.auth(settings.getLogin(), settings.getPassword());
-            if (otAuth.AuthenticationToken == string.Empty || otAuth.AuthenticationToken.Length == 0)
+                        
+            if (!otUtils.auth())
             {
-                log.Error("Failed to authenticate.");
+                log.Error("Failed to authenticate.");                
                 return;
             }
-            List<Record> activeRecords = getActiveRecordsList();
+
+            List<Record> activeRecords = otUtils.getActiveRecordsList();
             if (activeRecords == null)
             {
                 log.Error("Service finished caused by error.");
@@ -52,7 +53,7 @@ namespace WindowsService
                 return;
             }
             log.Info("Got " + activeRecords.Count + " active record(s).");
-            if (getRecordsContent(activeRecords)>0)
+            if (otUtils.getRecordsContent(activeRecords) > 0)
             {
                 proceedRecognition(activeRecords);
             }
@@ -60,61 +61,24 @@ namespace WindowsService
             log.Info("RecognitionProcessManager finished.");
         }
 
-        private static List<Record> getActiveRecordsList()
+        private void proceedRecognition(List<Record> activeRecords)
         {
-            List<Record> listToProceed = new List<Record>();
-            listToProceed.AddRange(Utils.getOTCSValue<List<Record>>(otAuth.AuthenticationToken, settings.activeRecordsRHURL));
+            QueueManager qm = QueueManager.getInstance(otUtils);
 
-            return listToProceed;
-        }
+            qm.buildWorkers(activeRecords);
 
-        private static int getRecordsContent(List<Record> activeRecords)
-        {
-            int i = 0;
-            foreach (Record record in activeRecords)
+            if (!qm.isReady())
             {
-                if (Utils.getVersionContent(otAuth, record)) i++;
-            }
-            log.Info("Loaded content for " + i + " records.");
-            return i;            
-        }
-
-        private static void proceedRecognition(List<Record> activeRecords)
-        {
-            QueueManager qm = QueueManager.getInstance(settings);
-            List<ExportSettings> exportSettingsList = getAllExportSettingsList();
-            
-            if (exportSettingsList == null)
-            {
-                log.Error("Service finished caused by error.");
-                return;
-            }
-            
-            if (exportSettingsList.Count == 0)
-            {
-                log.Error("Service does not received any export settings from OTCS.");
-                return;
+                log.Error(qm.errMsg);
+                return; 
             }
 
-            qm.loadExportSettings(exportSettingsList).putRecordsList(activeRecords).buildWorkers();
-
-            if (qm.isReady())
-            {
-                qm.doRecognition();               
-            }           
+            qm.doRecognition();
 
             if (qm.hasRecognizedContent())
             {
-                qm.uploadResults(otAuth);
-            }            
-        }
-
-        private static List<ExportSettings> getAllExportSettingsList()
-        {
-            List<ExportSettings> exportSettingsList = new List<ExportSettings>();
-            exportSettingsList.AddRange(Utils.getOTCSValue<List<ExportSettings>>(otAuth.AuthenticationToken, settings.exportFormatsRHURL));
-
-            return exportSettingsList;
+                qm.uploadResults();
+            }
         }
 
         internal bool isReady()

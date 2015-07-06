@@ -16,29 +16,15 @@ namespace WindowsService.Common
 {
     class DefaultWorker : IRecognitionWorker
     {
-
         public DefaultWorker() { }
 
         protected Record record;
-        protected List<ExportSettings> exportSettingsList = new List<ExportSettings>(2);
-        protected Authentication.OTAuthentication otAuth;
-        protected QueueManager qmf;
+        protected List<ExportSettings> exportSettingsList = new List<ExportSettings>(2);        
+        protected QueueManager qm;
 
         private Dictionary<int, List<byte[]>> recognizedContent = new Dictionary<int, List<byte[]>>();
         private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
-
-        public void setQueueManager(QueueManager qmf)
-        {
-            this.qmf = qmf;
-        }
-
-        public void setRecord(Record record)
-        {
-            //addExportSettings(record);
-            this.record = record;
-
-        }
-
+        
         public void addExportSettings(ExportSettings es)
         {
             int order = es.order;
@@ -49,7 +35,7 @@ namespace WindowsService.Common
             }
             else
             {
-                Utils.logWarning("Found dupliacate export settings for workType with ID: " + es.workTypeId); //TODO: Actualize
+                log.Warn("Found dupliacate export settings for workType with ID: " + es.workTypeId); 
             }
         }
 
@@ -100,11 +86,14 @@ namespace WindowsService.Common
                     ticket.InputFiles = infile;
                     jds = abbyyRs.processTicket(ticket, this.record, es.workFlowName);
 
-                    if (jds == null) return false;
+                    if (jds == null)
+                    {
+                        getManager().getOTUtils().incrementIterationsCounter(record, "ABBYY RS Failed to proceed recognition of record content.");
+                        return false;
+                    }
 
                     if (i < exportSettingsList.Count())
-                    {
-                        //uploadResultonDisc(jd);
+                    {                        
                         inputFiles = getInputFilesFromJobDocuments(jds);
                     }
                     else
@@ -136,11 +125,6 @@ namespace WindowsService.Common
             return list;
         }
 
-        protected Settings getSettings()
-        {
-            return this.getManager().getSettings();
-        }
-
         protected virtual void addResultToRecognizedContentList(JobDocument[] jds)
         {
             foreach (JobDocument jd in jds)
@@ -165,9 +149,8 @@ namespace WindowsService.Common
             }
         }
 
-        public virtual void uploadResult(OTAuthentication otAuth)
-        {
-            this.otAuth = otAuth;
+        public virtual void uploadResult()
+        {            
             bool versionAdded = false;
             foreach (KeyValuePair<int, List<byte[]>> entry in recognizedContent)
             {
@@ -193,7 +176,7 @@ namespace WindowsService.Common
             requestParams.Add("objectId", objectId.ToString());
             requestParams.Add("increment", increment.ToString());
 
-            Int32 updated = Utils.getOTCSValue<Int32>(otAuth.AuthenticationToken, getSettings().updateStateRHURL, requestParams);
+            Int32 updated = getManager().getOTUtils().getOTCSValue<Int32>(getSettings().updateStateRHURL, requestParams);
 
             if (updated>0)
             {
@@ -202,16 +185,14 @@ namespace WindowsService.Common
             else
             {
                 log.Info("Failed to update Record with objectId = '{0}' state.", new object[] { objectId });
-            }
-
-            
+            }            
         }
 
         internal string getVersionContext(int objectId)
         {
             DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
             DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
-            docManOTAuth.AuthenticationToken = otAuth.AuthenticationToken;
+            docManOTAuth.AuthenticationToken =  getManager().getOTUtils().getAuthToken();
 
             string contextID = null;
             try
@@ -221,6 +202,7 @@ namespace WindowsService.Common
             catch (Exception e)
             {
                 log.Error(e, "Exception in method 'getVersionContext' while trying to add version context for object: {0}", new object[] { objectId });
+                getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'getVersionContext' while trying to add version context for object: "+e.Message);    
             }
             return contextID;
         }
@@ -229,7 +211,7 @@ namespace WindowsService.Common
         {
             ContentService.ContentServiceClient contentClient = new ContentService.ContentServiceClient();
             ContentService.OTAuthentication contentOTAuth = new ContentService.OTAuthentication();
-            contentOTAuth.AuthenticationToken = otAuth.AuthenticationToken;
+            contentOTAuth.AuthenticationToken = getManager().getOTUtils().getAuthToken();
 
             ContentService.FileAtts fileAtts = Utils.createFileAtts(this.record, content.Length);
             byte[] recognizedContent = content;
@@ -243,6 +225,7 @@ namespace WindowsService.Common
                 catch (Exception e)
                 {
                     log.Error(e, "Exception in method 'addVersion' while trying to add version for object: {0}", new object[] { targetObjectId });
+                    getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'addVersion' while trying to add version: "+e.Message);
                     return false;
                 }
             }
@@ -252,7 +235,7 @@ namespace WindowsService.Common
         {
             DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
             DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
-            docManOTAuth.AuthenticationToken = otAuth.AuthenticationToken;
+            docManOTAuth.AuthenticationToken = getManager().getOTUtils().getAuthToken();
             try
             {
                 DocumentManagement.MetadataLanguage[] langs = docManClient.GetMetadataLanguages(ref docManOTAuth);
@@ -270,6 +253,7 @@ namespace WindowsService.Common
             catch (Exception e)
             {
                 log.Error(e, "Exception in method 'updateVersionDescription' while trying to update description for object: {0}", new object[] { objectId });
+                getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'updateVersionDescription' while trying to update description for object: "+e.Message);
             }
         }
 
@@ -338,7 +322,12 @@ namespace WindowsService.Common
 
         internal QueueManager getManager()
         {
-            return this.qmf;
+            return this.qm;
+        }
+
+        protected Settings getSettings()
+        {
+            return this.getManager().getSettings();
         }
 
         internal List<ExportSettings> getExportSettings(int workTypeId)
@@ -348,6 +337,15 @@ namespace WindowsService.Common
             return esList;
         }
 
+        public void setQueueManager(QueueManager qmf)
+        {
+            this.qm = qmf;
+        }
+
+        public void setRecord(Record record)
+        {
+            this.record = record;
+        }
     }
 }
 

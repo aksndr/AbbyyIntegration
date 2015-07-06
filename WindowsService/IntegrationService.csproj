@@ -93,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common\AbbyyRSWrapper.cs" />
+    <Compile Include="Common\OTUtils.cs" />
     <Compile Include="Common\qm\BarcodeWorker.cs" />
     <Compile Include="Common\qm\DefaultWorker.cs" />
     <Compile Include="Common\qm\IRecognitionWorker.cs" />

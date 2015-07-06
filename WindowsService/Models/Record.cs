@@ -18,8 +18,11 @@ namespace WindowsService.Models
         [DataMember]
         public int workTypeId { get; set; }
 
-        //public List<ExportSettings> exportSettingsList = new List<ExportSettings>();
-
         public byte[] recognizedContent { get; set; }
+
+        public override string ToString()
+        {
+            return "Record ID: " +this.ID+ " "+ "Object ID: " + this.objectId + ".";
+        }
     }
 }

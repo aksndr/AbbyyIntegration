@@ -18,208 +18,32 @@ using NLog;
 namespace WindowsService.Common
 {
     public class Utils       
-    {
-        private static Utils instance;
+    {       
+        //private static Settings settings;
         private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
-        
-        public static Authentication.OTAuthentication auth(string login, string password)
-        {
-            Authentication.AuthenticationClient authClient = new Authentication.AuthenticationClient();
-            Authentication.OTAuthentication otAuth = new Authentication.OTAuthentication();
-            try
-            {
-                string authToken = authClient.AuthenticateUser(login, password);
-                otAuth.AuthenticationToken = authToken;
-            }
-            catch (Exception e)
-            {
-                log.Error("Exception while proceeding authenticatiog for user: "+login+".",e);                
-            }
-            finally
-            {
-                authClient.Close();
-            }
-            return otAuth;
-        }
+        //private static Authentication.OTAuthentication otAuth; 
+                     
 
-        public static string makeOTCSRequest(string authToken, string requestUrl)
-        {
-            Stream receiveStream = null;
-            try
-            {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(requestUrl);
-                request.Method = "GET";
-                request.Headers.Add("Cookie", "LLCookie=" + authToken + ", LLTZCookie=0");
-                request.Timeout = 15000;
+        //public static Authentication.OTAuthentication auth(string login, string password)
+        //{
+        //    Authentication.AuthenticationClient authClient = new Authentication.AuthenticationClient();            
+        //    try
+        //    {
+        //        string authToken = authClient.AuthenticateUser(login, password);
+        //        otAuth = new Authentication.OTAuthentication();
+        //        otAuth.AuthenticationToken = authToken;
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        log.Error("Exception while proceeding authentication for user: "+login+".",e);                
+        //    }
+        //    finally
+        //    {
+        //        authClient.Close();
+        //    }
+        //    return otAuth;
+        //}       
 
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();                
-                receiveStream = response.GetResponseStream();
-                Encoding encode = System.Text.Encoding.GetEncoding("utf-8");
-
-                StreamReader readStream = new StreamReader(receiveStream, encode);
-                String responseText = readStream.ReadToEnd();
-                return responseText;
-            }
-            catch (Exception e)
-            {
-                log.Error("Exception while proceeding OTCS request.", e);
-                return null;
-            }
-            finally
-            {
-                if (receiveStream != null)
-                {
-                    receiveStream.Close();
-                    receiveStream.Dispose();
-                }
-            }
-        }
-
-        internal static string makeUnAuthenticatedOTCSRequest(string requestUrl)
-        {
-            Stream receiveStream = null;
-            try
-            {
-                HttpWebRequest requestLL = (HttpWebRequest)WebRequest.Create(requestUrl);
-                requestLL.Method = "GET";
-                //requestLL.Headers.Add("Cookie", "LLCookie=" + authToken + ", LLTZCookie=0");
-
-                HttpWebResponse responseLL = null;
-                responseLL = (HttpWebResponse)requestLL.GetResponse();
-                receiveStream = responseLL.GetResponseStream();
-                Encoding encode = System.Text.Encoding.GetEncoding("utf-8");
-
-                StreamReader readStream = new StreamReader(receiveStream, encode);
-                String responseText = readStream.ReadToEnd();
-                return responseText;
-            }
-            catch (Exception e)
-            {
-                log.Error("Exception while proceeding OTCS request.", e);
-                return null;
-            }
-            finally
-            {
-                if (receiveStream != null)
-                {
-                    receiveStream.Close();
-                    receiveStream.Dispose();
-                }
-            }
-        }
-
-
-        public static T getOTCSValue<T>(string authToken, string url, Dictionary<string, string> requestParams)
-        {
-
-            if (requestParams != null)
-            {
-                foreach (var param in requestParams)
-                {
-                    url += "&" + param.Key + "=" + param.Value;
-                }
-            }
-            return getOTCSValue<T>(authToken,url);
-        }
-
-
-        public static T getOTCSValue<T>(string authToken, string url, string paramName, string paramValue)
-        {
-            url += "&" + paramName + "=" + paramValue;
-            return getOTCSValue<T>(authToken, url);
-        }
-
-
-        public static T getOTCSValue<T>(string authToken, string url)
-        {
-            OTCSRequestResultT<T> r = new OTCSRequestResultT<T>();
-            string res;
-            try
-            {
-                if (authToken != null)
-                {
-                    res = Utils.makeOTCSRequest(authToken, url);
-                }
-                else
-                {
-                    res = Utils.makeUnAuthenticatedOTCSRequest(url);
-                }
-            }
-            catch (Exception ex)
-            {
-                log.Error(ex, "Exception while making request to OTCS system from service tier to url: {0}", new object[] { url });
-                return default(T);
-            }
-            if (res == null)
-            {
-                log.Error("Failed to get response from OTCS while proceeding request to Request Handler: " + url);
-                return default(T);
-            }
-            try
-            {
-                r = new JavaScriptSerializer().Deserialize<OTCSRequestResultT<T>>(res);
-            }
-            catch (Exception ex)
-            {
-                log.Error("Exception while Deserialize OTCS request result: " + res, ex);                
-                return default(T);
-            }
-            if (r.ok)
-            {
-                if (r.value != null)
-                {
-                    return r.value;
-                }
-                else
-                {
-                    log.Error("Failed to gt any value from response while proceeding request to Request Handler: " + url);                    
-                    return default(T);
-                }
-            }
-            else
-            {
-                string s = (r.errMsg != null ? String.Format("OTCS returned error: {0}", r.errMsg) : "OTCS returned error");
-                log.Error(s + " while proceeding request to Request Handler: " + url);                
-                return default(T);
-            }
-        }
-
-
-        public static bool getVersionContent(Authentication.OTAuthentication otAuth, Record record)
-        {
-            DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
-            DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
-            docManOTAuth.AuthenticationToken = otAuth.AuthenticationToken;
-
-            byte[] content;
-            DocumentManagement.Attachment attachment = null;
-            try
-            {
-                attachment = docManClient.GetVersionContents(ref docManOTAuth, record.objectId, record.versionNum);
-
-                if (attachment != null)
-                {
-                    content = attachment.Contents;
-                    record.content = content;
-                    record.fileName = attachment.FileName;
-                    return true;
-                }
-                else
-                {
-                    //TODO: Add error record to log add counter incrementation into table and getVersionContent method fail                     
-                }
-
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-                //TODO: Add error record to log add counter incrementation into table and getVersionContent method fail                
-            }
-            return false;
-
-        }
-
-        
         public static string[] getFromMetadataLangArray(DocumentManagement.MetadataLanguage[] langs)
         {
             List<string> list = new List<string>();
@@ -271,77 +95,54 @@ namespace WindowsService.Common
             return fileAtts;
         }
 
-        internal static void logWarning(string p)
-        {
-            throw new NotImplementedException();
-        }
+        //public static void saveToFileSystem(Record record)
+        //{
+        //    string tmpFilePath = @"G:\Temp\1\{0}";
+        //    string filepath = String.Format(tmpFilePath, Utils.replaceFileExtension(record.fileName, ".pdf"));
+        //    FileStream stream = new FileStream(filepath, FileMode.Create);
+        //    try
+        //    {
 
-        internal static void logError(string p)
-        {
-            throw new NotImplementedException();
-        }
+        //        byte[] buffer = record.recognizedContent;
+        //        stream.Write(buffer, 0, buffer.Length);
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        //TODO: Add log error 
+        //        Console.WriteLine(e.Message);
+        //    }
+        //    finally
+        //    {
+        //        if (stream != null)
+        //        {
+        //            stream.Close();
+        //        }
+        //    }
+        //}
 
-                     
-
-        public static void saveToFileSystem(Record record)
-        {
-            string tmpFilePath = @"G:\Temp\1\{0}";
-            string filepath = String.Format(tmpFilePath, Utils.replaceFileExtension(record.fileName, ".pdf"));
-            FileStream stream = new FileStream(filepath, FileMode.Create);
-            try
-            {
-
-                byte[] buffer = record.recognizedContent;
-                stream.Write(buffer, 0, buffer.Length);
-            }
-            catch (Exception e)
-            {
-                //TODO: Add log error 
-                Console.WriteLine(e.Message);
-            }
-            finally
-            {
-                if (stream != null)
-                {
-                    stream.Close();
-                }
-            }
-        }
-
-        public static void saveToFileSystem(byte[] content, string filename)
-        {
-            string tmpFilePath = @"G:\Temp\1\{0}";
-            string filepath = String.Format(tmpFilePath, filename);
-            FileStream stream = new FileStream(filepath, FileMode.Create);
-            try
-            {
-                byte[] buffer = content;
-                stream.Write(buffer, 0, buffer.Length);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-            finally
-            {
-                if (stream != null)
-                {
-                    stream.Close();
-                }
-            }
-        }
-               
-
-        internal static void logError(string p, Exception ex)
-        {
-            throw new NotImplementedException();
-        }
-
-        internal static void logInfo(string p)
-        {
-            throw new NotImplementedException();
-        }
-
+        //public static void saveToFileSystem(byte[] content, string filename)
+        //{
+        //    string tmpFilePath = @"G:\Temp\1\{0}";
+        //    string filepath = String.Format(tmpFilePath, filename);
+        //    FileStream stream = new FileStream(filepath, FileMode.Create);
+        //    try
+        //    {
+        //        byte[] buffer = content;
+        //        stream.Write(buffer, 0, buffer.Length);
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        Console.WriteLine(e.Message);
+        //    }
+        //    finally
+        //    {
+        //        if (stream != null)
+        //        {
+        //            stream.Close();
+        //        }
+        //    }
+        //}
+        
         internal static string decryptPass(string encryptedPass)
         {
             return encryptedPass;
