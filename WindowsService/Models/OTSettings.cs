@@ -16,6 +16,6 @@ namespace WindowsService.Models
         [DataMember]
         public int barcodeStartPos { get; set; }
         [DataMember]
-        public int barcodeEndPos { get; set; }
+        public int barcodeEndPos { get; set; }        
     }
 }

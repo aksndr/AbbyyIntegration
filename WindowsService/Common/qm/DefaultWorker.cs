@@ -16,14 +16,18 @@ namespace WindowsService.Common
 {
     class DefaultWorker : IRecognitionWorker
     {
-        public DefaultWorker() { }
+        public DefaultWorker() 
+        {
+            this.workerTypeName = "default";
+        }
 
         protected Record record;
         protected List<ExportSettings> exportSettingsList = new List<ExportSettings>(2);        
         protected QueueManager qm;
+        public string workerTypeName {get; set;}
 
         private Dictionary<int, List<byte[]>> recognizedContent = new Dictionary<int, List<byte[]>>();
-        private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
+        private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);        
         
         public void addExportSettings(ExportSettings es)
         {
@@ -156,106 +160,79 @@ namespace WindowsService.Common
             {
                 int targetObjectId = entry.Key;
 
-                string contextId = getVersionContext(targetObjectId);
-                if (string.IsNullOrEmpty(contextId)) continue;
+                string contextId = getManager().getOTUtils().getVersionContext(targetObjectId);
+                if (string.IsNullOrEmpty(contextId))
+                {
+                    getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'getVersionContext' while trying to add version context for object.");
+                    continue;
+                }
                 foreach (byte[] content in entry.Value)
                 {
-                    versionAdded = addVersion(contextId, content, targetObjectId);
-                    if (versionAdded) updateVersionDescription(targetObjectId);
+                    versionAdded = getManager().getOTUtils().addVersion(record, contextId, content, targetObjectId);
+                    if (versionAdded)
+                    {
+                        getManager().getOTUtils().updateVersionDescription(record.fileName, targetObjectId);
+                    }
+                    else
+                    {
+                        getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'addVersion' while trying to add version for object: " + targetObjectId);
+                    }
                 }
             }
-            if (versionAdded) updateRecordState(RecordStates.complete, record.objectId);
-        }
+            if (versionAdded) getManager().getOTUtils().updateRecordState(RecordStates.complete, record.ID);
+        }       
 
-        internal void updateRecordState(RecordStates recordState, int objectId, bool increment = false)
-        {
-            string url = getSettings().updateStateRHURL;
+        
 
-            Dictionary<string, string> requestParams = new Dictionary<string, string>(3);
-            requestParams.Add("state", recordState.ToString());
-            requestParams.Add("objectId", objectId.ToString());
-            requestParams.Add("increment", increment.ToString());
+        //internal bool addVersion(string contextId, byte[] content, int targetObjectId)
+        //{
+        //    ContentService.ContentServiceClient contentClient = new ContentService.ContentServiceClient();
+        //    ContentService.OTAuthentication contentOTAuth = new ContentService.OTAuthentication();
+        //    contentOTAuth.AuthenticationToken = getManager().getOTUtils().getAuthToken();
 
-            Int32 updated = getManager().getOTUtils().getOTCSValue<Int32>(getSettings().updateStateRHURL, requestParams);
+        //    ContentService.FileAtts fileAtts = Utils.createFileAtts(this.record, content.Length);
+        //    byte[] recognizedContent = content;
+        //    using (Stream stream = new MemoryStream(recognizedContent))
+        //    {
+        //        try
+        //        {
+        //            string objectId = contentClient.UploadContent(ref contentOTAuth, contextId, fileAtts, stream);
+        //            return true;
+        //        }
+        //        catch (Exception e)
+        //        {
+        //            log.Error(e, "Exception in method 'addVersion' while trying to add version for object: {0}", new object[] { targetObjectId });
+        //            getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'addVersion' while trying to add version: "+e.Message);
+        //            return false;
+        //        }
+        //    }
+        //}
 
-            if (updated>0)
-            {
-                log.Info("Record with objectId = '{0}' state updated to value: '{1}'.", new object[] { objectId, recordState });
-            }
-            else
-            {
-                log.Info("Failed to update Record with objectId = '{0}' state.", new object[] { objectId });
-            }            
-        }
+        //internal void updateVersionDescription(int objectId)
+        //{
+        //    DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
+        //    DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
+        //    docManOTAuth.AuthenticationToken = getManager().getOTUtils().getAuthToken();
+        //    try
+        //    {
+        //        DocumentManagement.MetadataLanguage[] langs = docManClient.GetMetadataLanguages(ref docManOTAuth);
+        //        string[] langsArray = Utils.getFromMetadataLangArray(langs);
 
-        internal string getVersionContext(int objectId)
-        {
-            DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
-            DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
-            docManOTAuth.AuthenticationToken =  getManager().getOTUtils().getAuthToken();
+        //        DocumentManagement.Version version = docManClient.GetVersion(ref docManOTAuth, objectId, 0);
+        //        String versionName = version.Filename;
+        //        if (versionName == Utils.replaceFileExtension(record.fileName, ".pdf"))
+        //        {
+        //            version.Comment = "Содержимое версии получено из сервиса распознавания ABBYY";
+        //        }
 
-            string contextID = null;
-            try
-            {
-                contextID = docManClient.AddVersionContext(ref docManOTAuth, objectId, null);
-            }
-            catch (Exception e)
-            {
-                log.Error(e, "Exception in method 'getVersionContext' while trying to add version context for object: {0}", new object[] { objectId });
-                getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'getVersionContext' while trying to add version context for object: "+e.Message);    
-            }
-            return contextID;
-        }
-
-        internal bool addVersion(string contextId, byte[] content, int targetObjectId)
-        {
-            ContentService.ContentServiceClient contentClient = new ContentService.ContentServiceClient();
-            ContentService.OTAuthentication contentOTAuth = new ContentService.OTAuthentication();
-            contentOTAuth.AuthenticationToken = getManager().getOTUtils().getAuthToken();
-
-            ContentService.FileAtts fileAtts = Utils.createFileAtts(this.record, content.Length);
-            byte[] recognizedContent = content;
-            using (Stream stream = new MemoryStream(recognizedContent))
-            {
-                try
-                {
-                    string objectId = contentClient.UploadContent(ref contentOTAuth, contextId, fileAtts, stream);
-                    return true;
-                }
-                catch (Exception e)
-                {
-                    log.Error(e, "Exception in method 'addVersion' while trying to add version for object: {0}", new object[] { targetObjectId });
-                    getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'addVersion' while trying to add version: "+e.Message);
-                    return false;
-                }
-            }
-        }
-
-        internal void updateVersionDescription(int objectId)
-        {
-            DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
-            DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
-            docManOTAuth.AuthenticationToken = getManager().getOTUtils().getAuthToken();
-            try
-            {
-                DocumentManagement.MetadataLanguage[] langs = docManClient.GetMetadataLanguages(ref docManOTAuth);
-                string[] langsArray = Utils.getFromMetadataLangArray(langs);
-
-                DocumentManagement.Version version = docManClient.GetVersion(ref docManOTAuth, objectId, 0);
-                String versionName = version.Filename;
-                if (versionName == Utils.replaceFileExtension(record.fileName, ".pdf"))
-                {
-                    version.Comment = "Содержимое версии получено из сервиса распознавания ABBYY";
-                }
-
-                docManClient.UpdateVersion(ref docManOTAuth, version);
-            }
-            catch (Exception e)
-            {
-                log.Error(e, "Exception in method 'updateVersionDescription' while trying to update description for object: {0}", new object[] { objectId });
-                getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'updateVersionDescription' while trying to update description for object: "+e.Message);
-            }
-        }
+        //        docManClient.UpdateVersion(ref docManOTAuth, version);
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        log.Error(e, "Exception in method 'updateVersionDescription' while trying to update description for object: {0}", new object[] { objectId });
+        //        getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'updateVersionDescription' while trying to update description for object: "+e.Message);
+        //    }
+        //}
 
         internal List<InputFile[]> getInputFilesFromRecord(byte[] content)
         {
@@ -346,6 +323,7 @@ namespace WindowsService.Common
         {
             this.record = record;
         }
+        
     }
 }
 

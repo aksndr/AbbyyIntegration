@@ -141,6 +141,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tests\b64_encode_decode_test.cs" />
     <Compile Include="Web References\RSSoapService\Reference.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

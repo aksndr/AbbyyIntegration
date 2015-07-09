@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Web;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -321,6 +322,28 @@ namespace WindowsService.Common
 
         }
 
+        public void updateRecordState(RecordStates recordState, int recordId, bool increment = false, string errMsg = "Error text undefined")
+        {
+            string url = getSettings().updateStateRHURL;
+
+            Dictionary<string, string> requestParams = new Dictionary<string, string>(3);
+            requestParams.Add("state", recordState.ToString());
+            requestParams.Add("recordId", recordId.ToString());
+            requestParams.Add("increment", increment.ToString());
+
+            Int32 updated = getOTCSValue<Int32>(getSettings().updateStateRHURL, requestParams);
+
+            if (updated > 0)
+            {
+                log.Info("Record with ID = '{0}' state updated to value: '{1}'.", new object[] { recordId, recordState });
+            }
+            else
+            {
+                log.Info("Failed to update Record with ID = '{0}' state.", new object[] { recordId });
+            }
+        }
+
+
         public void incrementIterationsCounter(Record record, string errorMessage)
         {
             Dictionary<string, string> requestParams = new Dictionary<string, string>(3);
@@ -371,5 +394,145 @@ namespace WindowsService.Common
         //{
         //    throw new NotImplementedException();
         //}
+
+        internal void uploadContentInTempObject(Record record, string filename, byte[] content, string workTypeName, string fileExt = "pdf")
+        {
+            string url = settings.getNewTempObjIdRHURL;
+            if (String.IsNullOrEmpty(url))
+            {
+                log.Error("Setting 'GetNewTempObjectIdRequestHandlerURl' were not defined properly.");
+                return;
+            }
+
+            Dictionary<string, string> requestParams = new Dictionary<string, string>(3);
+            requestParams.Add("recordId", record.ID.ToString());
+            requestParams.Add("filename", filename);
+            requestParams.Add("fileExt", fileExt);
+            requestParams.Add("workTypeName", workTypeName);
+            
+            //сходить в OTCS через RH, получить айди нового временного документа
+            Int32 tempObjectId = getOTCSValue<Int32>(url, requestParams);
+            if (tempObjectId == 0)
+            {
+                log.Error("Failed to get tempObjectId for record: " + record.ToString());
+                return;
+            }
+
+            //добавить новую версию для этого документа
+            string contextId = getVersionContext(tempObjectId);
+            if (String.IsNullOrEmpty(contextId))
+            {                
+                updateRecordState(RecordStates.error, record.ID, true, String.Format("Exception in method 'getVersionContext' while trying to get context for temporary object with id: {0}.", tempObjectId));
+                return;
+            }
+
+            bool versionAdded = addVersion(record, contextId, content, tempObjectId);
+            bool descriptionUpdated;
+            if (versionAdded)
+            {
+                descriptionUpdated = updateVersionDescription(record.fileName, tempObjectId);
+            }
+            else
+            {
+                incrementIterationsCounter(record, "Exception in method 'addVersion' while trying to add version for temporary object: " + tempObjectId);
+                return;
+            }
+            if (!descriptionUpdated)
+                updateRecordState(RecordStates.warn, record.ID, false, "Exception in method 'updateVersionDescription' while trying to update description for record." );
+
+        }
+
+        internal string getVersionContext(int objectId)
+        {
+            DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
+            DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
+            docManOTAuth.AuthenticationToken = getAuthToken();
+
+            string contextID = null;
+            try
+            {
+                contextID = docManClient.AddVersionContext(ref docManOTAuth, objectId, null);
+            }
+            catch (Exception e)
+            {
+                log.Error(e, "Exception in method 'getVersionContext' while trying to add version context for object: {0}", new object[] { objectId });               
+            }
+            return contextID;
+        }
+
+        internal bool addVersion(Record record, string contextId, byte[] content, int targetObjectId)
+        {
+            ContentService.ContentServiceClient contentClient = new ContentService.ContentServiceClient();
+            ContentService.OTAuthentication contentOTAuth = new ContentService.OTAuthentication();
+            contentOTAuth.AuthenticationToken = getAuthToken();
+
+            ContentService.FileAtts fileAtts = Utils.createFileAtts(record, content.Length);
+            byte[] recognizedContent = content;
+            using (Stream stream = new MemoryStream(recognizedContent))
+            {
+                try
+                {
+                    string objectId = contentClient.UploadContent(ref contentOTAuth, contextId, fileAtts, stream);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    log.Error(e, "Exception in method 'addVersion' while trying to add version for object: {0}", new object[] { targetObjectId });                    
+                    return false;
+                }
+            }
+        }
+
+        internal bool updateVersionDescription(String fileName, int objectId)
+        {
+            DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
+            DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
+            docManOTAuth.AuthenticationToken = getAuthToken();
+            try
+            {
+                DocumentManagement.MetadataLanguage[] langs = docManClient.GetMetadataLanguages(ref docManOTAuth);
+                string[] langsArray = Utils.getFromMetadataLangArray(langs);
+
+                DocumentManagement.Version version = docManClient.GetVersion(ref docManOTAuth, objectId, 0);
+                String versionName = version.Filename;
+                if (versionName == Utils.replaceFileExtension(fileName, ".pdf"))
+                {
+                    version.Comment = "Содержимое версии получено из сервиса распознавания ABBYY";
+                }
+
+                docManClient.UpdateVersion(ref docManOTAuth, version);
+            }
+            catch (Exception e)
+            {
+                log.Error(e, "Exception in method 'updateVersionDescription' while trying to update description for object: {0}", new object[] { objectId });
+                return false;
+            }
+            return true;
+        }
+
+
+        internal string createVersionContext(Record record, string barcode, int objectId)
+        {
+            DocumentManagement.DocumentManagementClient docManClient = new DocumentManagement.DocumentManagementClient();
+            DocumentManagement.OTAuthentication docManOTAuth = new DocumentManagement.OTAuthentication();
+            docManOTAuth.AuthenticationToken = getAuthToken();
+
+            string contextID = null;
+            string comment = Utils.getRecognizedFileDescription("ru_RU");
+            try
+            {
+                contextID = docManClient.CreateDocumentContext(ref docManOTAuth, objectId, barcode, comment, false, null);
+            }
+            catch (Exception e)
+            {
+                log.Error(e, "Exception in method 'createVersionContext' while trying to create document context for object with parent id = '{0}'", new object[] { objectId });                
+            } 
+            finally
+            {
+                if (docManClient != null)
+                    docManClient.Close();
+            }
+            return contextID;
+        }
     }
 }

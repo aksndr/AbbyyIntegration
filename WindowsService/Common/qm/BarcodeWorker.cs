@@ -15,11 +15,14 @@ namespace WindowsService.Common
 {
     class BarcodeWorker : DefaultWorker, IRecognitionWorker
     {
-        public BarcodeWorker() { }
+        public BarcodeWorker()
+        {
+            this.workerTypeName = "barcode";
+        }
 
         private Dictionary<string, byte[]> recognizedContent = new Dictionary<string, byte[]>();
         private static NLog.Logger log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Name);
-               
+
 
         //public bool proceedRecord(AbbyyRSWrapper abbyyRs)
         //{
@@ -40,7 +43,7 @@ namespace WindowsService.Common
 
         //            ticket.InputFiles = infile;
         //            jds = abbyyRs.processTicket(ticket, this.record, es.workFlowName);
-                    
+
         //            if (jds == null) return false;
 
         //            if (i<exportSettingsList.Count())
@@ -68,39 +71,65 @@ namespace WindowsService.Common
                     log.Warn("Recognized content contains duplicate barcode result sets."); //TODO: Сделать добавление обоих результатов, на случай добавления как вложений в составной документ
                     continue;
                 }
-                recognizedContent.Add(barcode, content); 
+                recognizedContent.Add(barcode, content);
             }
         }
 
         public override void uploadResult()
-        {            
+        {
             bool versionAdded = false;
+            string errMsg = null;
             foreach (KeyValuePair<string, byte[]> entry in recognizedContent)
-            {
-                int targetObjectId = findObjectInOTCSbyBarcode(entry.Key); 
+            {                
+                int targetObjectId = findObjectInOTCSbyBarcode(entry.Key);
                 //TODO: Сделать определение типа - составной\обычный. Для составных дублирующиеся баркоды класть в виде отдельных вложений (или искать по названию файла) для обычных - хз что делать.
-                if (targetObjectId ==0 )
+                if (targetObjectId == 0)
                 {
-                    log.Warn("Object has not been found by barcode: " + entry.Key);
-                    //TODO: Сделать добавление распознанного контента во временный объект
+                    errMsg = "Target object has not been found by barcode: " + entry.Key;
+                    //getManager().getOTUtils().updateRecordState(RecordStates.error, record.objectId, true, errMsg);
+                    //getManager().getOTUtils().uploadContentInTempObject(record, entry.Key, entry.Value, this.workerTypeName);
+                    log.Warn(errMsg);
                 }
                 else
                 {
-                    string contextId = getVersionContext(targetObjectId);
-                    if (string.IsNullOrEmpty(contextId)) continue;
-
-                    versionAdded = addVersion(contextId, entry.Value, targetObjectId);
-                    if (versionAdded) updateVersionDescription(targetObjectId);                    
+                    string contextId = getManager().getOTUtils().getVersionContext(targetObjectId);
+                    if (string.IsNullOrEmpty(contextId))
+                    {
+                        errMsg = "Exception in method 'getVersionContext' while trying to add version context for object: " + targetObjectId;
+                        //getManager().getOTUtils().updateRecordState(RecordStates.error, record.objectId, true, errMsg);
+                        //getManager().getOTUtils().uploadContentInTempObject(record, entry.Key, entry.Value, this.workerTypeName);
+                        //log.Error(errMsg); 
+                        //getManager().getOTUtils().incrementIterationsCounter(record, "Exception in method 'getVersionContext' while trying to add version context for object.");                        
+                    }
+                    else
+                    {
+                        versionAdded = getManager().getOTUtils().addVersion(record, contextId, entry.Value, targetObjectId);
+                    }
                 }
+                if (versionAdded)
+                {
+                    getManager().getOTUtils().updateVersionDescription(record.fileName, targetObjectId);
+                    getManager().getOTUtils().updateRecordState(RecordStates.complete, record.ID);
+                }
+                else
+                {
+                    errMsg = String.IsNullOrEmpty(errMsg) ? "Exception in method 'addVersion' while trying to add version for object: " + targetObjectId : errMsg;
+                    getManager().getOTUtils().updateRecordState(RecordStates.error, record.objectId, true, errMsg);
+                    getManager().getOTUtils().uploadContentInTempObject(record, entry.Key, entry.Value, this.workerTypeName);
+                    log.Error(errMsg);
+
+                }
+
             }
-            if (versionAdded) updateRecordState(RecordStates.complete, record.objectId); 
-        }              
+
+
+        }
 
         //private int findObjectInOTCSbyBarcode(string barcode)
         //{
         //    string url = getSettings().findObjectInOTCSbyBarcodeRequestHandlerURL;
         //    OTCSRequestResult r = new OTCSRequestResult();
-                        
+
         //    try
         //    {
         //        url = url + "&barcode=" + barcode;
@@ -132,11 +161,11 @@ namespace WindowsService.Common
         //}
 
         private int findObjectInOTCSbyBarcode(string barcode)
-        {            
+        {
 
             Int32 objectId = getManager().getOTUtils().getOTCSValue<Int32>(getSettings().findByBcodeRHURL, "barcode", barcode);
 
-            return objectId;         
+            return objectId;
 
 
 
@@ -179,8 +208,8 @@ namespace WindowsService.Common
             //    return 0;
             //}            
         }
-                     
-                
+
+
         //test meth
         //private void uploadResultonDisc(JobDocument[] jds)
         //{
@@ -188,7 +217,7 @@ namespace WindowsService.Common
         //    {
         //        OutputDocument od = jd.OutputDocuments[0];
         //        FileContainer file = od.Files[0];
-                          
+
         //        String filename= jd.CustomText + ".tiff";
         //        byte[] content = file.FileContents;
         //        Utils.saveToFileSystem(content, filename);
@@ -203,7 +232,7 @@ namespace WindowsService.Common
             foreach (var v in vs)
             {
                 IEnumerable<JobDocument> x = jds.Where(j => j.CustomText.StartsWith(v));
-                jdaList.Add(x.ToArray());               
+                jdaList.Add(x.ToArray());
             }
 
             List<InputFile[]> list = new List<InputFile[]>(jdaList.Count());
@@ -221,12 +250,12 @@ namespace WindowsService.Common
                     inputFile.FileData = file;
                     inputFiles.Add(inputFile);
                 }
-                list.Add(inputFiles.ToArray());               
+                list.Add(inputFiles.ToArray());
             }
             return list;
         }
-                    
-       
+
+
 
     }
 

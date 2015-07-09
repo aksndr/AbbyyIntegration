@@ -18,6 +18,7 @@ namespace WindowsService.Models
         public string findByBcodeRHURL { get; set; }
         public string updateStateRHURL { get; set; }
         public string incrementIterRHURL { get; set; }
+        public string getNewTempObjIdRHURL { get; set; }
         public string abbyyRSServicesUrl { get; set; }
         public string abbyyRSLocation { get; set; }
         public string otcsHostName { get; set; }
@@ -73,12 +74,13 @@ namespace WindowsService.Models
             {
                 settingsIsValid = true;
 
-                settingsRHURL       = String.Format(SettingsRequestHandlerURl,otcsHostName);
-                activeRecordsRHURL  = String.Format(ActiveRecordsRequestHandlerURl,otcsHostName);
-                exportFormatsRHURL  = String.Format(ExportFormatsRequestHandlerURl,otcsHostName);
-                findByBcodeRHURL    = String.Format(FindByBarcodeRequestHandlerURl,otcsHostName);
-                updateStateRHURL    = String.Format(UpdateRecordStateRequestHandlerURl, otcsHostName);
-                incrementIterRHURL  = String.Format(IncrementIterationsCounterRequestHandlerURl, otcsHostName);
+                settingsRHURL           = String.Format(SettingsRequestHandlerURl,otcsHostName);
+                activeRecordsRHURL      = String.Format(ActiveRecordsRequestHandlerURl,otcsHostName);
+                exportFormatsRHURL      = String.Format(ExportFormatsRequestHandlerURl,otcsHostName);
+                findByBcodeRHURL        = String.Format(FindByBarcodeRequestHandlerURl,otcsHostName);
+                updateStateRHURL        = String.Format(UpdateRecordStateRequestHandlerURl, otcsHostName);
+                incrementIterRHURL      = String.Format(IncrementIterationsCounterRequestHandlerURl, otcsHostName);
+                getNewTempObjIdRHURL    = String.Format(GetNewTempObjectIdRequestHandlerURl, otcsHostName);
 
                 logResult();                
             }
@@ -94,6 +96,7 @@ namespace WindowsService.Models
             log.Info(s, new object[] { "FindByBarcodeRequestHandlerURl", findByBcodeRHURL });
             log.Info(s, new object[] { "UpdateRecordStateRequestHandlerURl", updateStateRHURL });
             log.Info(s, new object[] { "IncrementIterationsCounterRequestHandlerURl", incrementIterRHURL });
+            log.Info(s, new object[] { "GetNewTempObjectIdRequestHandlerURl", getNewTempObjIdRHURL });
             log.Info(s, new object[] { "AbbyyRSServicesURL", abbyyRSServicesUrl });
             log.Info(s, new object[] { "AbbyyRSSURL", abbyyRSLocation });
         }
@@ -138,7 +141,7 @@ namespace WindowsService.Models
         public int getBarcodeEndPos()
         {
             return otSettings.barcodeEndPos;
-        }
+        }              
 
         private const string SettingsRequestHandlerURl = "http://{0}/OTCS/cs.exe?func=abbyyIntegration.getServiceSettings";
         private const string ActiveRecordsRequestHandlerURl="http://{0}/OTCS/cs.exe?func=abbyyIntegration.getRecordsToProceed";
@@ -146,6 +149,7 @@ namespace WindowsService.Models
         private const string FindByBarcodeRequestHandlerURl = "http://{0}/OTCS/cs.exe?func=abbyyIntegration.getObjectInOTCSbyBarcode";
         private const string UpdateRecordStateRequestHandlerURl = "http://{0}/OTCS/cs.exe?func=abbyyIntegration.updateRecordState";
         private const string IncrementIterationsCounterRequestHandlerURl = "http://{0}/OTCS/cs.exe?func=abbyyIntegration.incrementIterationsCounter";  
+        private const string GetNewTempObjectIdRequestHandlerURl = "http://{0}/OTCS/cs.exe?func=abbyyIntegration.getNewTempObjId"; 
     }   
     
 }
